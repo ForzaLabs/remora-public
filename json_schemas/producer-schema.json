@@ -1,0 +1,236 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Producer Schema",
+    "description": "Schema for defining data producers",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "name": {
+            "type": "string",
+            "description": "The name of the producer"
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional description of the producer"
+        },
+        "source": {
+            "type": "string",
+            "description": "The name of the Source"
+        },
+        "dimensions": {
+            "type": "array",
+            "description": "Dimensions for the producer",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the dimension"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional description of the dimension"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "string",
+                            "number",
+                            "datetime"
+                        ],
+                        "description": "The data type of the dimension"
+                    },
+                    "alias": {
+                        "type": "string",
+                        "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name"
+                    },
+                    "pk": {
+                        "type": "boolean",
+                        "description": "Whether this is a primary key column or not"
+                    },
+                    "classification": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "PHI",
+                                "PII",
+                                "GDPR"
+                            ],
+                            "description": "Classification categories for this dimension"
+                        }
+                    },
+                    "mask": {
+                        "type": "string",
+                        "enum": [
+                            "hash",
+                            "mask",
+                            "crypt"
+                        ],
+                        "description": "Masking type to apply to this dimension"
+                    }
+                },
+                "required": [
+                    "name",
+                    "type"
+                ],
+                "additionalProperties": false
+            },
+            "minItems": 1
+        },
+        "measures": {
+            "type": "array",
+            "description": "Optional measures for the producer",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the measure"
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional description of the measure"
+                    },
+                    "sql": {
+                        "type": "string",
+                        "description": "SQL command used to create a metric"
+                    }
+                },
+                "required": [
+                    "name",
+                    "sql"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "settings": {
+            "type": "object",
+            "description": "Settings for the producer",
+            "properties": {
+                "sqlTable": {
+                    "type": "string",
+                    "description": "The SQL table name, which is a concise way of setting the sql property to 'SELECT * FROM <sql table name>'"
+                },
+                "direct": {
+                    "type": "boolean",
+                    "description": "If true, no view is created on the producer side due to permission limitations"
+                },
+                "sql": {
+                    "type": "string",
+                    "description": "The name of the file that has the SQL statement to run to create this producer"
+                },
+                "fileKey": {
+                    "type": "string",
+                    "description": "If the source is a bucket, this is the file key that identifies the file to read"
+                },
+                "fileType": {
+                    "type": "string",
+                    "enum": [
+                        "JSON",
+                        "JSONL",
+                        "CSV"
+                    ],
+                    "description": "The type of file to read"
+                }
+            },
+            "additionalProperties": false
+        },
+        "_version": {
+            "type": "number",
+            "description": "Version number of the producer configuration"
+        }
+    },
+    "required": [
+        "name",
+        "source",
+        "dimensions",
+        "settings",
+        "_version"
+    ],
+    "additionalProperties": false,
+    "examples": [
+        {
+            "name": "CustomerData",
+            "description": "Producer for customer data from the main database",
+            "source": "Production PostgreSQL Database",
+            "dimensions": [
+                {
+                    "name": "customer_id",
+                    "type": "string",
+                    "pk": true
+                },
+                {
+                    "name": "full_name",
+                    "type": "string",
+                    "classification": [
+                        "PII",
+                        "GDPR"
+                    ],
+                    "mask": "hash"
+                },
+                {
+                    "name": "email",
+                    "type": "string",
+                    "classification": [
+                        "PII",
+                        "GDPR"
+                    ],
+                    "mask": "mask"
+                },
+                {
+                    "name": "signup_date",
+                    "type": "datetime"
+                }
+            ],
+            "measures": [
+                {
+                    "name": "total_orders",
+                    "description": "Total number of orders by this customer",
+                    "sql": "COUNT(order_id)"
+                },
+                {
+                    "name": "total_spent",
+                    "description": "Total amount spent by this customer",
+                    "sql": "SUM(order_amount)"
+                }
+            ],
+            "settings": {
+                "sqlTable": "customers"
+            },
+            "_version": 1
+        },
+        {
+            "name": "SalesData",
+            "description": "Producer for sales data from S3 bucket",
+            "source": "Data Lake",
+            "dimensions": [
+                {
+                    "name": "transaction_id",
+                    "type": "string",
+                    "pk": true
+                },
+                {
+                    "name": "product_id",
+                    "type": "string"
+                },
+                {
+                    "name": "sale_amount",
+                    "type": "number"
+                },
+                {
+                    "name": "sale_date",
+                    "type": "datetime"
+                }
+            ],
+            "settings": {
+                "fileKey": "sales/daily_sales.csv",
+                "fileType": "CSV"
+            },
+            "_version": 2
+        }
+    ]
+}

@@ -1,0 +1,59 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["name", "version", "consumers", "producers", "sources", "schemas", "settings"],
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Name of the remora project"
+        },
+        "version": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "description": "Version of the project in semver format"
+        },
+        "consumers": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            },
+            "description": "Array of consumer paths"
+        },
+        "producers": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            },
+            "description": "Array of producer paths"
+        },
+        "sources": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            },
+            "description": "Array of source paths"
+        },
+        "schemas": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            },
+            "description": "Array of schema paths"
+        },
+        "settings": {
+            "type": "object",
+            "required": ["SQL_MAX_QUERY_ROWS"],
+            "properties": {
+                "SQL_MAX_QUERY_ROWS": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of rows for SQL queries"
+                }
+            }
+        }
+    }
+}

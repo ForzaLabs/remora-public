@@ -1,0 +1,423 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Consumer Schema",
+    "description": "Schema for defining data consumers",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "name": {
+            "type": "string",
+            "description": "The name of the consumer"
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional description of the consumer"
+        },
+        "producers": {
+            "type": "array",
+            "description": "The 'FROM' elements of the SQL query (only the first one is in the FROM clause, others are joined in)",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of an available producer/consumer"
+                    },
+                    "joins": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "otherName": {
+                                    "type": "string",
+                                    "description": "The name of the other producer to JOIN with from the list of producers"
+                                },
+                                "relationship": {
+                                    "type": "string",
+                                    "enum": [
+                                        "one-to-one",
+                                        "one-to-many",
+                                        "many-to-one"
+                                    ],
+                                    "description": "The type of join relationship"
+                                },
+                                "sql": {
+                                    "type": "string",
+                                    "description": "The SQL to use to perform the join"
+                                }
+                            },
+                            "required": [
+                                "otherName",
+                                "relationship",
+                                "sql"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "custom": {
+                        "type": "object",
+                        "description": "Custom code to extract fields from producers, transform them, and return results",
+                        "properties": {
+                            "language": {
+                                "type": "string",
+                                "enum": [
+                                    "js",
+                                    "python"
+                                ],
+                                "description": "The language of the custom code"
+                            },
+                            "code": {
+                                "type": "string",
+                                "description": "The custom code to execute"
+                            }
+                        },
+                        "required": [
+                            "language",
+                            "code"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "additionalProperties": false
+            },
+            "minItems": 1
+        },
+        "fields": {
+            "type": "array",
+            "description": "The fields to include in the consumer",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The dimension/measure of the producer OR '*'. If '*' then return all dimensions"
+                    },
+                    "alias": {
+                        "type": "string",
+                        "description": "If set, changes the key returned by the consumer to this alias"
+                    },
+                    "from": {
+                        "type": "string",
+                        "description": "If the key is ambiguous, set a 'from' with the name of the producer/consumer to get the key from"
+                    },
+                    "grouping": {
+                        "type": "object",
+                        "description": "If set, group resulting items that have the same value for the 'groupingKey'",
+                        "properties": {
+                            "groupingKey": {
+                                "type": "string",
+                                "description": "Used to create hierarchical data structure (parent -> children)"
+                            },
+                            "subFields": {
+                                "type": "array",
+                                "description": "Recursive structure defining fields that should be pulled inside this grouped field",
+                                "items": {
+                                    "$ref": "#/definitions/consumerField"
+                                }
+                            }
+                        },
+                        "required": [
+                            "groupingKey",
+                            "subFields"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "required": [
+                    "key"
+                ],
+                "additionalProperties": false
+            },
+            "minItems": 1
+        },
+        "outputs": {
+            "type": "array",
+            "description": "Output formats and configurations for the consumer",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "format": {
+                        "type": "string",
+                        "enum": [
+                            "SQL",
+                            "API",
+                            "CSV",
+                            "PARQUET",
+                            "JSON"
+                        ],
+                        "description": "The output format of the consumer"
+                    },
+                    "accellerated": {
+                        "type": "boolean",
+                        "description": "If true and supported, the consumer will be materialized to improve query performance"
+                    },
+                    "direct": {
+                        "type": "boolean",
+                        "description": "If true, no view is created on the consumer side due to permission limitations"
+                    },
+                    "exportDestination": {
+                        "type": "string",
+                        "description": "The name of the source where the consumer will export its data when deployed/run"
+                    },
+                    "trigger": {
+                        "type": "object",
+                        "description": "Triggers to perform the export (not just the usual 'Deploy')",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "CRON",
+                                    "API"
+                                ],
+                                "description": "The type of trigger schedule"
+                            },
+                            "value": {
+                                "type": "string",
+                                "description": "The value for the trigger (e.g., cron expression or API endpoint)"
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "value"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "required": [
+                    "format"
+                ],
+                "additionalProperties": false
+            },
+            "minItems": 1
+        },
+        "filters": {
+            "type": "array",
+            "description": "Filters to apply to the consumer data",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sql": {
+                        "type": "string",
+                        "description": "The SQL to use to filter on the included dimension"
+                    },
+                    "rule": {
+                        "type": "object",
+                        "description": "Non-SQL based filtering logic",
+                        "properties": {
+                            "member": {
+                                "type": "string",
+                                "description": "The field to filter on"
+                            },
+                            "operator": {
+                                "type": "string",
+                                "enum": [
+                                    "equals",
+                                    "notEquals",
+                                    "contains",
+                                    "notContains",
+                                    "startsWith",
+                                    "endsWith",
+                                    "greaterThan",
+                                    "greaterThanOrEquals",
+                                    "lessThan",
+                                    "lessThanOrEquals",
+                                    "in",
+                                    "notIn",
+                                    "between",
+                                    "notBetween",
+                                    "isNull",
+                                    "isNotNull",
+                                    "true",
+                                    "false",
+                                    "matches",
+                                    "notMatches",
+                                    "sql"
+                                ],
+                                "description": "The filter operator to apply"
+                            },
+                            "values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "The values to filter against"
+                            }
+                        },
+                        "required": [
+                            "member",
+                            "operator",
+                            "values"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "metadata": {
+            "type": "object",
+            "description": "Any tags to add to this consumer for sorting and organizing",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "project": {
+            "type": "string",
+            "description": "Tag that groups consumers together to make them accessible by a singular api_key"
+        },
+        "schema": {
+            "type": "string",
+            "description": "The name of the JSON schema in this project that this consumer needs to adhere to"
+        },
+        "_version": {
+            "type": "number",
+            "description": "Version number of the consumer configuration"
+        }
+    },
+    "required": [
+        "name",
+        "producers",
+        "fields",
+        "outputs",
+        "_version"
+    ],
+    "additionalProperties": false,
+    "definitions": {
+        "consumerField": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "The dimension/measure of the producer OR '*'. If '*' then return all dimensions"
+                },
+                "alias": {
+                    "type": "string",
+                    "description": "If set, changes the key returned by the consumer to this alias"
+                },
+                "from": {
+                    "type": "string",
+                    "description": "If the key is ambiguous, set a 'from' with the name of the producer/consumer to get the key from"
+                },
+                "grouping": {
+                    "type": "object",
+                    "description": "If set, group resulting items that have the same value for the 'groupingKey'",
+                    "properties": {
+                        "groupingKey": {
+                            "type": "string",
+                            "description": "Used to create hierarchical data structure (parent -> children)"
+                        },
+                        "subFields": {
+                            "type": "array",
+                            "description": "Recursive structure defining fields that should be pulled inside this grouped field",
+                            "items": {
+                                "$ref": "#/definitions/consumerField"
+                            }
+                        }
+                    },
+                    "required": [
+                        "groupingKey",
+                        "subFields"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "key"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "examples": [
+        {
+            "name": "UserOrderAnalytics",
+            "description": "Consumer that combines user data with their order history",
+            "producers": [
+                {
+                    "name": "UserData",
+                    "joins": [
+                        {
+                            "otherName": "OrderData",
+                            "relationship": "one-to-many",
+                            "sql": "${P.id} = ${OrderData.user_id}"
+                        }
+                    ]
+                },
+                {
+                    "name": "OrderData"
+                }
+            ],
+            "fields": [
+                {
+                    "key": "id",
+                    "from": "UserData"
+                },
+                {
+                    "key": "name",
+                    "alias": "user_name",
+                    "from": "UserData"
+                },
+                {
+                    "key": "email",
+                    "from": "UserData"
+                },
+                {
+                    "key": "orders",
+                    "grouping": {
+                        "groupingKey": "order_items",
+                        "subFields": [
+                            {
+                                "key": "id",
+                                "from": "OrderData",
+                                "alias": "order_id"
+                            },
+                            {
+                                "key": "created_at",
+                                "from": "OrderData"
+                            },
+                            {
+                                "key": "total_amount",
+                                "from": "OrderData"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "format": "API"
+                },
+                {
+                    "format": "JSON",
+                    "exportDestination": "Data Lake",
+                    "trigger": {
+                        "type": "CRON",
+                        "value": "0 0 * * *"
+                    }
+                }
+            ],
+            "filters": [
+                {
+                    "rule": {
+                        "member": "total_amount",
+                        "operator": "greaterThan",
+                        "values": [
+                            "100"
+                        ]
+                    }
+                }
+            ],
+            "metadata": {
+                "department": "Sales",
+                "owner": "analytics-team"
+            },
+            "project": "sales-analytics",
+            "_version": 1
+        }
+    ]
+}

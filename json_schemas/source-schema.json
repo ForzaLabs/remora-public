@@ -1,0 +1,109 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Source Schema",
+    "description": "Schema for defining data sources and their authentication methods",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "name": {
+            "type": "string",
+            "description": "The name of the data source"
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional description of the data source"
+        },
+        "engine": {
+            "type": "string",
+            "enum": [
+                "aws-redshift",
+                "aws-dynamodb",
+                "aws-s3",
+                "postgres",
+                "local"
+            ],
+            "description": "The type of data engine"
+        },
+        "authentication": {
+            "type": "object",
+            "description": "Authentication details for connecting to the data source",
+            "properties": {
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "iam",
+                        "username-password",
+                        "access-secret-key",
+                        "arn",
+                        "implicit"
+                    ],
+                    "description": "The authentication method to use"
+                }
+            },
+            "required": [
+                "method"
+            ],
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "_version": {
+            "type": "number",
+            "description": "Version number of the source configuration"
+        }
+    },
+    "required": [
+        "name",
+        "engine",
+        "authentication",
+        "_version"
+    ],
+    "additionalProperties": false,
+    "examples": [
+        {
+            "name": "Production PostgreSQL Database",
+            "description": "Main production database for customer data",
+            "engine": "postgres",
+            "authentication": {
+                "method": "username-password",
+                "host": "prod-db.example.com",
+                "user": "app_user",
+                "password": "password123",
+                "dbName": "customers",
+                "schema": "public",
+                "port": "5432"
+            },
+            "_version": 1
+        },
+        {
+            "name": "Data Lake",
+            "description": "AWS S3 bucket containing analytics data",
+            "engine": "aws-s3",
+            "authentication": {
+                "method": "access-secret-key",
+                "accessKey": "AKIAIOSFODNN7EXAMPLE",
+                "secretKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "region": "us-east-1",
+                "bucket": "analytics-data"
+            },
+            "_version": 2
+        },
+        {
+            "name": "Redshift Data Warehouse",
+            "engine": "aws-redshift",
+            "authentication": {
+                "method": "iam",
+                "host": "redshift-cluster.region.redshift.amazonaws.com",
+                "dbName": "analytics",
+                "port": "5439",
+                "iamProfile": "redshift-access-role",
+                "region": "us-west-2",
+                "clusterId": "analytics-cluster"
+            },
+            "_version": 1
+        }
+    ]
+}
