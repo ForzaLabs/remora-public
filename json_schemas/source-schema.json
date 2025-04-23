@@ -41,14 +41,91 @@
                         "implicit"
                     ],
                     "description": "The authentication method to use"
+                },
+                "host": {
+                    "type": "string",
+                    "description": "Hostname or endpoint of the data source"
+                },
+                "user": {
+                    "type": "string",
+                    "description": "Username for authentication"
+                },
+                "password": {
+                    "type": "string",
+                    "description": "Password for authentication"
+                },
+                "database": {
+                    "type": "string",
+                    "description": "Database name"
+                },
+                "workgroup": {
+                    "type": "string",
+                    "description": "Workgroup name"
+                },
+                "schema": {
+                    "type": "string",
+                    "description": "Database schema name"
+                },
+                "port": {
+                    "type": "string",
+                    "description": "Port number for the connection"
+                },
+                "accessKey": {
+                    "type": "string",
+                    "description": "AWS access key ID"
+                },
+                "secretKey": {
+                    "type": "string",
+                    "description": "AWS secret access key"
+                },
+                "sessionToken": {
+                    "type": "string",
+                    "description": "AWS session token (if required)"
+                },
+                "region": {
+                    "type": "string",
+                    "description": "AWS region"
+                },
+                "bucket": {
+                    "type": "string",
+                    "description": "S3 bucket name"
+                },
+                "iamProfile": {
+                    "type": "string",
+                    "description": "IAM role or profile name"
+                },
+                "clusterId": {
+                    "type": "string",
+                    "description": "Redshift cluster identifier"
                 }
             },
-            "required": [
-                "method"
-            ],
-            "additionalProperties": {
-                "type": "string"
-            }
+            "required": ["method"],
+            "allOf": [
+                {
+                    "if": {
+                        "properties": { "method": { "const": "username-password" } }
+                    },
+                    "then": {
+                        "required": ["host", "user", "password"]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "method": { "const": "access-secret-key" } }
+                    },
+                    "then": {
+                        "required": ["accessKey", "secretKey"]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": { "method": { "const": "iam" } }
+                    },
+                    "then": {
+                        "required": ["region", "iamProfile"]
+                    }
+                }
+            ]
         },
         "_version": {
             "type": "number",
