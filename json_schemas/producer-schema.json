@@ -135,6 +135,10 @@
                         "CSV"
                     ],
                     "description": "The type of file to read"
+                },
+                "delimiter": {
+                    "type": "string",
+                    "description": "The column delimiter for the CSV file if different from the default (,)."
                 }
             },
             "additionalProperties": false

@@ -127,6 +127,52 @@
                             "subFields"
                         ],
                         "additionalProperties": false
+                    },
+                    "transform": {
+                        "description": "Optional list of transformations to apply to the dataset before returning the data",
+                        "oneOf": [
+                            {
+                                "$ref": "#/definitions/singleTransformation"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/singleTransformation"
+                                },
+                                "description": "A list of transformations to be applied in sequence"
+                            }
+                        ]
+                    },
+                    "validate": {
+                        "type": "object",
+                        "description": "Rules to check field value compliance and data quality",
+                        "properties": {
+                            "min": {
+                                "type": "number",
+                                "description": "Minimum value for numeric fields"
+                            },
+                            "max": {
+                                "type": "number",
+                                "description": "Maximum value for numeric fields"
+                            },
+                            "regex": {
+                                "type": "string",
+                                "description": "Regular expression pattern to validate string fields"
+                            },
+                            "required": {
+                                "type": "boolean",
+                                "description": "Whether the field is required"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "onError": {
+                        "type": "string",
+                        "description": "Action to take if an error occurs during transformations or validation",
+                        "enum": ["set_default", "skip", "fail"]
+                    },
+                    "default": {
+                        "description": "Default value of the field if it is missing (or on error if specified)"
                     }
                 },
                 "required": [
@@ -325,12 +371,358 @@
                         "subFields"
                     ],
                     "additionalProperties": false
+                },
+                "transform": {
+                    "description": "Optional list of transformations to apply to the dataset before returning the data",
+                    "oneOf": [
+                        {
+                            "$ref": "#/definitions/singleTransformation"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/singleTransformation"
+                            },
+                            "description": "A list of transformations to be applied in sequence"
+                        }
+                    ]
+                },
+                "validate": {
+                    "type": "object",
+                    "description": "Rules to check field value compliance and data quality",
+                    "properties": {
+                        "min": {
+                            "type": "number",
+                            "description": "Minimum value for numeric fields"
+                        },
+                        "max": {
+                            "type": "number",
+                            "description": "Maximum value for numeric fields"
+                        },
+                        "regex": {
+                            "type": "string",
+                            "description": "Regular expression pattern to validate string fields"
+                        },
+                        "required": {
+                            "type": "boolean",
+                            "description": "Whether the field is required"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "onError": {
+                    "type": "string",
+                    "description": "Action to take if an error occurs during transformations or validation",
+                    "enum": ["set_default", "skip", "fail"]
+                },
+                "default": {
+                    "description": "Default value of the field if it is missing (or on error if specified)"
                 }
             },
             "required": [
                 "key"
             ],
             "additionalProperties": false
+        },
+        "singleTransformation": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "cast": {
+                            "type": "string",
+                            "description": "Cast the value to a specific type",
+                            "enum": ["string", "number", "date", "boolean"]
+                        }
+                    },
+                    "required": ["cast"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "multiply": {
+                            "type": "number",
+                            "description": "Multiply the numeric value by this factor"
+                        }
+                    },
+                    "required": ["multiply"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "add": {
+                            "type": "number",
+                            "description": "Add this number to the numeric value"
+                        }
+                    },
+                    "required": ["add"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "extract": {
+                            "type": "string",
+                            "enum": ["year", "month", "day", "hour", "minute"],
+                            "description": "Extract a component from a date value"
+                        }
+                    },
+                    "required": ["extract"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "concat": {
+                            "type": "object",
+                            "properties": {
+                                "separator": {
+                                    "type": "string",
+                                    "description": "The separator to use when joining array elements"
+                                }
+                            },
+                            "required": ["separator"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["concat"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "split": {
+                            "type": "object",
+                            "properties": {
+                                "separator": {
+                                    "type": "string",
+                                    "description": "The separator to use when splitting the string"
+                                },
+                                "index": {
+                                    "type": "number",
+                                    "description": "The index of the split part to keep"
+                                }
+                            },
+                            "required": ["separator", "index"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["split"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "regex_match": {
+                            "type": "object",
+                            "properties": {
+                                "pattern": {
+                                    "type": "string",
+                                    "description": "The regex pattern to test against"
+                                },
+                                "flags": {
+                                    "type": "string",
+                                    "description": "Regex flags (e.g., 'i' for case-insensitive)"
+                                }
+                            },
+                            "required": ["pattern"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["regex_match"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "regex_replace": {
+                            "type": "object",
+                            "properties": {
+                                "pattern": {
+                                    "type": "string",
+                                    "description": "The regex pattern to match"
+                                },
+                                "replacement": {
+                                    "type": "string",
+                                    "description": "The replacement string"
+                                },
+                                "flags": {
+                                    "type": "string",
+                                    "description": "Regex flags (e.g., 'g' for global)"
+                                }
+                            },
+                            "required": ["pattern", "replacement"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["regex_replace"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "regex_extract": {
+                            "type": "object",
+                            "properties": {
+                                "pattern": {
+                                    "type": "string",
+                                    "description": "The regex pattern to extract with"
+                                },
+                                "group": {
+                                    "type": "number",
+                                    "description": "The capture group index to extract (0 for full match)"
+                                },
+                                "flags": {
+                                    "type": "string",
+                                    "description": "Regex flags (e.g., 'i' for case-insensitive)"
+                                }
+                            },
+                            "required": ["pattern", "group"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["regex_extract"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "trim": {
+                            "type": "boolean",
+                            "description": "Trim whitespace from both ends of the string"
+                        }
+                    },
+                    "required": ["trim"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "to_lowercase": {
+                            "type": "boolean",
+                            "description": "Convert string to lowercase"
+                        }
+                    },
+                    "required": ["to_lowercase"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "to_uppercase": {
+                            "type": "boolean",
+                            "description": "Convert string to uppercase"
+                        }
+                    },
+                    "required": ["to_uppercase"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "capitalize": {
+                            "type": "boolean",
+                            "description": "Capitalize the first letter of the string"
+                        }
+                    },
+                    "required": ["capitalize"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "substring": {
+                            "type": "object",
+                            "properties": {
+                                "start": {
+                                    "type": "number",
+                                    "description": "Starting position of substring"
+                                },
+                                "end": {
+                                    "type": "number",
+                                    "description": "Optional ending position of substring"
+                                }
+                            },
+                            "required": ["start"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["substring"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "pad_start": {
+                            "type": "object",
+                            "properties": {
+                                "length": {
+                                    "type": "number",
+                                    "description": "Desired string length after padding"
+                                },
+                                "char": {
+                                    "type": "string",
+                                    "description": "Character to pad with",
+                                    "minLength": 1,
+                                    "maxLength": 1
+                                }
+                            },
+                            "required": ["length", "char"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["pad_start"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "pad_end": {
+                            "type": "object",
+                            "properties": {
+                                "length": {
+                                    "type": "number",
+                                    "description": "Desired string length after padding"
+                                },
+                                "char": {
+                                    "type": "string",
+                                    "description": "Character to pad with",
+                                    "minLength": 1,
+                                    "maxLength": 1
+                                }
+                            },
+                            "required": ["length", "char"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["pad_end"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "prepend": {
+                            "type": "string",
+                            "description": "String to add at the beginning"
+                        }
+                    },
+                    "required": ["prepend"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "append": {
+                            "type": "string",
+                            "description": "String to add at the end"
+                        }
+                    },
+                    "required": ["append"],
+                    "additionalProperties": false
+                }
+            ]
         }
     },
     "examples": [
