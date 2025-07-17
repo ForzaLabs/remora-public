@@ -68,9 +68,11 @@
                         "enum": [
                             "hash",
                             "mask",
-                            "crypt"
+                            "crypt",
+                            "random",
+                            "seeded-random"
                         ],
-                        "description": "Masking type to apply to this dimension"
+                        "description": "Masking type to apply to this dimension. 'hash' replaces with a hashed value. 'mask' replaces characters with a mask character. 'crypt' encrypts the value. 'random' replaces with a random value. 'seeded-random' replaces with a random value generated from a seed."
                     }
                 },
                 "required": [
@@ -132,13 +134,25 @@
                     "enum": [
                         "JSON",
                         "JSONL",
-                        "CSV"
+                        "CSV", 
+                        "TXT",
+                        "XLS",
+                        "XLSX",
+                        "XML"
                     ],
                     "description": "The type of file to read"
                 },
                 "delimiter": {
                     "type": "string",
-                    "description": "The column delimiter for the CSV file if different from the default (,)."
+                    "description": "The column delimiter for CSV or TXT files if different from the default (,)."
+                },
+                "hasHeaderRow": {
+                    "type": "boolean",
+                    "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true."
+                },
+                "sheetName": {
+                    "type": "string", 
+                    "description": "For Excel files (.xls/.xlsx), specifies the name of the sheet to read data from. If not specified, the first sheet will be used."
                 }
             },
             "additionalProperties": false

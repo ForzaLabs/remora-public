@@ -97,6 +97,10 @@
                 "clusterId": {
                     "type": "string",
                     "description": "Redshift cluster identifier"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "The folder path"
                 }
             },
             "required": ["method"]
