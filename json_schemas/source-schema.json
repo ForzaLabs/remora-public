@@ -29,7 +29,7 @@
         },
         "authentication": {
             "type": "object",
-            "description": "Authentication details for connecting to the data source",
+            "description": "Authentication details for connecting to the data source. You can use environment variables by using the {your-env-var} notation",
             "properties": {
                 "method": {
                     "type": "string",

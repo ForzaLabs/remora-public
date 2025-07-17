@@ -79,6 +79,10 @@
                             "code"
                         ],
                         "additionalProperties": false
+                    },
+                    "union": {
+                        "type": "boolean",
+                        "description": "Merges the data from the various producers in a single dataset. They must have the same output dimensions. If true, then you can't set any joins on any producer, since all producers are merged in a single dataset."
                     }
                 },
                 "required": [
@@ -173,6 +177,14 @@
                     },
                     "default": {
                         "description": "Default value of the field if it is missing (or on error if specified)"
+                    },
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "If set, the field is kept and used during processing, but omitted when exporting the data"
+                    },
+                    "fixed": {
+                        "type": "boolean",
+                        "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
                     }
                 },
                 "required": [
@@ -199,7 +211,7 @@
                         ],
                         "description": "The output format of the consumer"
                     },
-                    "accellerated": {
+                    "accelerated": {
                         "type": "boolean",
                         "description": "If true and supported, the consumer will be materialized to improve query performance"
                     },
@@ -258,7 +270,7 @@
                         "properties": {
                             "member": {
                                 "type": "string",
-                                "description": "The field to filter on"
+                                "description": "The field to filter on. Use the \"alias\" if specified"
                             },
                             "operator": {
                                 "type": "string",
@@ -428,6 +440,14 @@
                 },
                 "default": {
                     "description": "Default value of the field if it is missing (or on error if specified)"
+                },
+                "hidden": {
+                    "type": "boolean",
+                    "description": "If set, the field is kept and used during processing, but omitted when exporting the data"
+                },
+                "fixed": {
+                    "type": "boolean",
+                    "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
                 }
             },
             "required": [
@@ -731,6 +751,36 @@
                         }
                     },
                     "required": ["append"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "combine_fields": {
+                            "type": "object",
+                            "properties": {
+                                "fields": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "Array of field names to combine",
+                                    "minItems": 1
+                                },
+                                "separator": {
+                                    "type": "string",
+                                    "description": "Optional separator between fields (default: empty string)"
+                                },
+                                "template": {
+                                    "type": "string",
+                                    "description": "Optional template string with placeholders like '{field1} - {field2}'"
+                                }
+                            },
+                            "required": ["fields"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["combine_fields"],
                     "additionalProperties": false
                 }
             ]

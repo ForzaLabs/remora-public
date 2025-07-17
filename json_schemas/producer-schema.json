@@ -28,7 +28,7 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "The name of the dimension"
+                        "description": "The name of the dimension. This is the output name of this dimension."
                     },
                     "description": {
                         "type": "string",
@@ -45,7 +45,7 @@
                     },
                     "alias": {
                         "type": "string",
-                        "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name"
+                        "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
                     },
                     "pk": {
                         "type": "boolean",
@@ -65,14 +65,16 @@
                     },
                     "mask": {
                         "type": "string",
-                        "enum": [
+                        "description": "Masking type to apply to this dimension. Predefined values: 'hash' (replaces with a hashed value), 'mask' (replaces characters with a mask character), 'crypt' (encrypts the value), 'random' (replaces with a random value), 'seeded-random' (replaces with a random value generated from a seed), 'none' (no masking). You can also use environment variables by using the {your-env-var} notation or any custom string value.",
+                        "examples": [
                             "hash",
                             "mask",
                             "crypt",
                             "random",
-                            "seeded-random"
-                        ],
-                        "description": "Masking type to apply to this dimension. 'hash' replaces with a hashed value. 'mask' replaces characters with a mask character. 'crypt' encrypts the value. 'random' replaces with a random value. 'seeded-random' replaces with a random value generated from a seed."
+                            "seeded-random", 
+                            "none",
+                            "{REMORA_MASK_IN_DEV}"
+                        ]
                     }
                 },
                 "required": [

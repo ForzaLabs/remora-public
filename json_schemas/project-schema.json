@@ -1,8 +1,14 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Project Schema",
+    "description": "Schema for defining remora project configuration",
     "type": "object",
     "required": ["name", "version", "consumers", "producers", "sources", "schemas", "settings"],
     "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
         "name": {
             "type": "string",
             "description": "Name of the remora project"
@@ -11,6 +17,10 @@
             "type": "string",
             "pattern": "^\\d+\\.\\d+\\.\\d+$",
             "description": "Version of the project in semver format"
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional description of the project"
         },
         "consumers": {
             "type": "array",
@@ -52,8 +62,39 @@
                     "type": "integer",
                     "minimum": 1,
                     "description": "Maximum number of rows for SQL queries"
+                },
+                "STRING_MAX_CHARACTERS_LENGTH": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum length for string fields"
+                },
+                "MAX_ITEMS_IN_MEMORY": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Maximum number of items to keep in memory"
+                },
+                "DEBUG_MODE": {
+                    "type": "boolean",
+                    "description": "Enable logging of internal steps"
                 }
             }
         }
-    }
+    },
+    "additionalProperties": false,
+    "examples": [
+        {
+            "$schema": "https://raw.githubusercontent.com/ForzaLabs/remora-public/refs/heads/main/json_schemas/project-schema.json",
+            "name": "analytics-project",
+            "version": "1.0.0",
+            "description": "Analytics data processing project",
+            "consumers": ["/consumers"],
+            "producers": ["/producers"],
+            "sources": ["/sources"],
+            "schemas": ["/schemas"],
+            "settings": {
+                "SQL_MAX_QUERY_ROWS": 10000,
+                "DEBUG_MODE": true
+            }
+        }
+    ]
 }
