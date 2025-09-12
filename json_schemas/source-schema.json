@@ -23,7 +23,8 @@
                 "aws-dynamodb",
                 "aws-s3",
                 "postgres",
-                "local"
+                "local",
+                "delta-share"
             ],
             "description": "The type of data engine"
         },
@@ -66,6 +67,10 @@
                     "type": "string",
                     "description": "Database schema name"
                 },
+                "table": {
+                    "type": "string",
+                    "description": "Table name (used by some engines like delta-share)"
+                },
                 "port": {
                     "type": "string",
                     "description": "Port number for the connection"
@@ -101,6 +106,14 @@
                 "path": {
                     "type": "string",
                     "description": "The folder path"
+                },
+                "share": {
+                    "type": "string",
+                    "description": "Delta Sharing share name"
+                },
+                "bearerToken": {
+                    "type": "string",
+                    "description": "Delta Sharing bearer token used for authentication"
                 }
             },
             "required": ["method"]

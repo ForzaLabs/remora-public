@@ -223,6 +223,10 @@
                         "type": "string",
                         "description": "The name of the source where the consumer will export its data when deployed/run"
                     },
+                    "exportName": {
+                        "type": "string",
+                        "description": "If the format is a file, forces the same name in the export file (extension is auto-added)"
+                    },
                     "trigger": {
                         "type": "object",
                         "description": "Triggers to perform the export (not just the usual 'Deploy')",
@@ -463,7 +467,11 @@
                         "cast": {
                             "type": "string",
                             "description": "Cast the value to a specific type",
-                            "enum": ["string", "number", "date", "boolean"]
+                            "enum": ["string", "number", "datetime", "boolean"]
+                        },
+                        "format": {
+                            "type": "string",
+                            "description": "Optional format for date parsing or string formatting (e.g. YYYY-MM-DD, DD/MM/YY)"
                         }
                     },
                     "required": ["cast"],
