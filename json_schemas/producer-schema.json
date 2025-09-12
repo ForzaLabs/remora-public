@@ -39,7 +39,8 @@
                         "enum": [
                             "string",
                             "number",
-                            "datetime"
+                            "datetime",
+                            "boolean"
                         ],
                         "description": "The data type of the dimension"
                     },
