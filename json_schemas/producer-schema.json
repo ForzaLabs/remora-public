@@ -76,6 +76,10 @@
                             "none",
                             "{REMORA_MASK_IN_DEV}"
                         ]
+                    },
+                    "sourceFilename": {
+                        "type": "boolean",
+                        "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
                     }
                 },
                 "required": [
@@ -130,7 +134,7 @@
                 },
                 "fileKey": {
                     "type": "string",
-                    "description": "If the source is a bucket, this is the file key that identifies the file to read"
+                    "description": "For S3/local sources: the file key/path that identifies the file to read. For HTTP API sources: the API endpoint path (e.g., '/api/v1/users')"
                 },
                 "fileType": {
                     "type": "string",
@@ -252,6 +256,40 @@
                 "fileType": "CSV"
             },
             "_version": 2
+        },
+        {
+            "name": "APIUsers",
+            "description": "Producer for user data from REST API",
+            "source": "REST API with Bearer Token",
+            "dimensions": [
+                {
+                    "name": "user_id",
+                    "type": "string",
+                    "pk": true
+                },
+                {
+                    "name": "username",
+                    "type": "string"
+                },
+                {
+                    "name": "email",
+                    "type": "string",
+                    "classification": [
+                        "PII",
+                        "GDPR"
+                    ],
+                    "mask": "mask"
+                },
+                {
+                    "name": "created_at",
+                    "type": "datetime"
+                }
+            ],
+            "settings": {
+                "fileKey": "/api/v1/users",
+                "fileType": "JSON"
+            },
+            "_version": 1
         }
     ]
 }

@@ -235,13 +235,47 @@
                                 "type": "string",
                                 "enum": [
                                     "CRON",
-                                    "API"
+                                    "API",
+                                    "QUEUE"
                                 ],
-                                "description": "The type of trigger schedule"
+                                "description": "The type of trigger schedule. CRON: time-based scheduling. API: HTTP endpoint trigger. QUEUE: SQS queue message trigger (supports shared queues with message type filtering)."
                             },
                             "value": {
                                 "type": "string",
-                                "description": "The value for the trigger (e.g., cron expression or API endpoint)"
+                                "description": "The value for the trigger. For CRON: cron expression (e.g., '0 0 * * *'). For API: endpoint path. For QUEUE: SQS queue URL or queue name (will construct full URL using metadata.region and metadata.accountId if needed)."
+                            },
+                            "metadata": {
+                                "type": "object",
+                                "description": "Additional metadata for the trigger (e.g., AWS credentials, message type filter)",
+                                "properties": {
+                                    "messageType": {
+                                        "type": "string",
+                                        "description": "Optional message type filter for QUEUE triggers. Only messages with matching 'type', 'messageType', or 'eventType' fields will be processed by this consumer. Messages without a matching type will be left in the queue for other consumers, enabling shared queue usage."
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "description": "AWS region for the queue (for QUEUE triggers)"
+                                    },
+                                    "accountId": {
+                                        "type": "string",
+                                        "description": "AWS account ID for constructing queue URL (for QUEUE triggers)"
+                                    },
+                                    "accessKeyId": {
+                                        "type": "string",
+                                        "description": "AWS access key ID for queue authentication (for QUEUE triggers)"
+                                    },
+                                    "secretAccessKey": {
+                                        "type": "string",
+                                        "description": "AWS secret access key for queue authentication (for QUEUE triggers)"
+                                    },
+                                    "sessionToken": {
+                                        "type": "string",
+                                        "description": "AWS session token for temporary credentials (for QUEUE triggers)"
+                                    }
+                                },
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
                             }
                         },
                         "required": [
@@ -249,6 +283,20 @@
                             "value"
                         ],
                         "additionalProperties": false
+                    },
+                    "onSuccess": {
+                        "type": "array",
+                        "description": "Actions to perform when the output operation completes successfully",
+                        "items": {
+                            "$ref": "#/definitions/consumerOutputOnFinish"
+                        }
+                    },
+                    "onError": {
+                        "type": "array",
+                        "description": "Actions to perform when the output operation fails",
+                        "items": {
+                            "$ref": "#/definitions/consumerOutputOnFinish"
+                        }
                     }
                 },
                 "required": [
@@ -792,6 +840,23 @@
                     "additionalProperties": false
                 }
             ]
+        },
+        "consumerOutputOnFinish": {
+            "type": "object",
+            "description": "Actions to perform when output operations complete",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["move-file"],
+                    "description": "The action to perform"
+                },
+                "moveToDestination": {
+                    "type": "string",
+                    "description": "If the action is 'move-file', this specifies the source destination in remora where the source file should be moved"
+                }
+            },
+            "required": ["action"],
+            "additionalProperties": false
         }
     },
     "examples": [
