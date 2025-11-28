@@ -83,6 +83,10 @@
                     "union": {
                         "type": "boolean",
                         "description": "Merges the data from the various producers in a single dataset. They must have the same output dimensions. If true, then you can't set any joins on any producer, since all producers are merged in a single dataset."
+                    },
+                    "isOptional": {
+                        "type": "boolean",
+                        "description": "If true, if the data for this producer is not available when executing the consumer (e.g. the file is not present) the consumer will not fail, but just create a placeholder dataset and continue execution."
                     }
                 },
                 "required": [
@@ -837,6 +841,264 @@
                         }
                     },
                     "required": ["combine_fields"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Apply conditional logic to transform values based on comparison conditions",
+                    "properties": {
+                        "conditional": {
+                            "type": "object",
+                            "properties": {
+                                "clauses": {
+                                    "type": "array",
+                                    "description": "Array of if-then clauses evaluated in order. First matching clause wins.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "if": {
+                                                "$ref": "#/definitions/comparisonCondition"
+                                            },
+                                            "then": {
+                                                "description": "The value to return if the condition matches",
+                                                "oneOf": [
+                                                    { "type": "string" },
+                                                    { "type": "number" },
+                                                    { "type": "boolean" }
+                                                ]
+                                            }
+                                        },
+                                        "required": ["if", "then"],
+                                        "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                },
+                                "else": {
+                                    "description": "Default value if no clause matches. If not specified, the original value is kept.",
+                                    "oneOf": [
+                                        { "type": "string" },
+                                        { "type": "number" },
+                                        { "type": "boolean" },
+                                        { "type": "null" }
+                                    ]
+                                }
+                            },
+                            "required": ["clauses"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["conditional"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "mask": {
+                            "type": "string",
+                            "enum": ["hash", "mask", "crypt", "random", "seeded-random", "none"],
+                            "description": "Apply masking to the field value for data privacy. Options: 'hash' (one-way hash), 'mask' (replace with asterisks), 'crypt' (reversible encryption), 'random' (random value), 'seeded-random' (consistent random value per input), 'none' (no masking)"
+                        }
+                    },
+                    "required": ["mask"],
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "comparisonCondition": {
+            "description": "A condition to compare a field value against. Exactly one comparison operator must be specified.",
+            "oneOf": [
+                {
+                    "type": "object",
+                    "description": "Check if the numeric value is greater than the specified number",
+                    "properties": {
+                        "greater_than": {
+                            "type": "number",
+                            "description": "The value must be greater than this number"
+                        }
+                    },
+                    "required": ["greater_than"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the numeric value is greater than or equal to the specified number",
+                    "properties": {
+                        "greater_than_or_equal": {
+                            "type": "number",
+                            "description": "The value must be greater than or equal to this number"
+                        }
+                    },
+                    "required": ["greater_than_or_equal"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the numeric value is less than the specified number",
+                    "properties": {
+                        "less_than": {
+                            "type": "number",
+                            "description": "The value must be less than this number"
+                        }
+                    },
+                    "required": ["less_than"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the numeric value is less than or equal to the specified number",
+                    "properties": {
+                        "less_than_or_equal": {
+                            "type": "number",
+                            "description": "The value must be less than or equal to this number"
+                        }
+                    },
+                    "required": ["less_than_or_equal"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value equals the specified value (strict equality)",
+                    "properties": {
+                        "equals": {
+                            "description": "The value must equal this exactly",
+                            "oneOf": [
+                                { "type": "string" },
+                                { "type": "number" },
+                                { "type": "boolean" }
+                            ]
+                        }
+                    },
+                    "required": ["equals"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value does not equal the specified value",
+                    "properties": {
+                        "not_equals": {
+                            "description": "The value must not equal this",
+                            "oneOf": [
+                                { "type": "string" },
+                                { "type": "number" },
+                                { "type": "boolean" }
+                            ]
+                        }
+                    },
+                    "required": ["not_equals"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value is in the specified list of values",
+                    "properties": {
+                        "in": {
+                            "type": "array",
+                            "description": "The value must be one of these values",
+                            "items": {
+                                "oneOf": [
+                                    { "type": "string" },
+                                    { "type": "number" },
+                                    { "type": "boolean" }
+                                ]
+                            },
+                            "minItems": 1
+                        }
+                    },
+                    "required": ["in"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value is not in the specified list of values",
+                    "properties": {
+                        "not_in": {
+                            "type": "array",
+                            "description": "The value must not be any of these values",
+                            "items": {
+                                "oneOf": [
+                                    { "type": "string" },
+                                    { "type": "number" },
+                                    { "type": "boolean" }
+                                ]
+                            },
+                            "minItems": 1
+                        }
+                    },
+                    "required": ["not_in"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the string value starts with the specified prefix",
+                    "properties": {
+                        "starts_with": {
+                            "type": "string",
+                            "description": "The string value must start with this prefix"
+                        }
+                    },
+                    "required": ["starts_with"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the string value ends with the specified suffix",
+                    "properties": {
+                        "ends_with": {
+                            "type": "string",
+                            "description": "The string value must end with this suffix"
+                        }
+                    },
+                    "required": ["ends_with"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the string value contains the specified substring",
+                    "properties": {
+                        "contains": {
+                            "type": "string",
+                            "description": "The string value must contain this substring"
+                        }
+                    },
+                    "required": ["contains"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the string value does not contain the specified substring",
+                    "properties": {
+                        "not_contains": {
+                            "type": "string",
+                            "description": "The string value must not contain this substring"
+                        }
+                    },
+                    "required": ["not_contains"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value is empty (null, undefined, or blank string)",
+                    "properties": {
+                        "is_empty": {
+                            "type": "boolean",
+                            "const": true,
+                            "description": "Returns true if the value is null, undefined, or an empty/whitespace-only string"
+                        }
+                    },
+                    "required": ["is_empty"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Check if the value is not empty (has content)",
+                    "properties": {
+                        "is_not_empty": {
+                            "type": "boolean",
+                            "const": true,
+                            "description": "Returns true if the value is not null, not undefined, and not an empty/whitespace-only string"
+                        }
+                    },
+                    "required": ["is_not_empty"],
                     "additionalProperties": false
                 }
             ]

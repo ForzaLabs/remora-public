@@ -145,7 +145,8 @@
                         "TXT",
                         "XLS",
                         "XLSX",
-                        "XML"
+                        "XML",
+                        "PARQUET"
                     ],
                     "description": "The type of file to read"
                 },
