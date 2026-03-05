@@ -170,8 +170,7 @@
     "required": [
         "name",
         "engine",
-        "authentication",
-        "_version"
+        "authentication"
     ],
     "additionalProperties": false,
     "examples": [

@@ -72,10 +72,6 @@
                     "type": "integer",
                     "minimum": 1,
                     "description": "Maximum number of items to keep in memory"
-                },
-                "DEBUG_MODE": {
-                    "type": "boolean",
-                    "description": "Enable logging of internal steps"
                 }
             }
         }
@@ -92,8 +88,7 @@
             "sources": ["/sources"],
             "schemas": ["/schemas"],
             "settings": {
-                "SQL_MAX_QUERY_ROWS": 10000,
-                "DEBUG_MODE": true
+                "SQL_MAX_QUERY_ROWS": 10000
             }
         }
     ]

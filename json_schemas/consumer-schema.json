@@ -57,29 +57,6 @@
                             "additionalProperties": false
                         }
                     },
-                    "custom": {
-                        "type": "object",
-                        "description": "Custom code to extract fields from producers, transform them, and return results",
-                        "properties": {
-                            "language": {
-                                "type": "string",
-                                "enum": [
-                                    "js",
-                                    "python"
-                                ],
-                                "description": "The language of the custom code"
-                            },
-                            "code": {
-                                "type": "string",
-                                "description": "The custom code to execute"
-                            }
-                        },
-                        "required": [
-                            "language",
-                            "code"
-                        ],
-                        "additionalProperties": false
-                    },
                     "union": {
                         "type": "boolean",
                         "description": "Merges the data from the various producers in a single dataset. They must have the same output dimensions. If true, then you can't set any joins on any producer, since all producers are merged in a single dataset."
@@ -189,6 +166,10 @@
                     "fixed": {
                         "type": "boolean",
                         "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
+                    },
+                    "copyFrom": {
+                        "type": "string",
+                        "description": "If set, this field will be added as new to the consumer dataset and will be a copy of the specified field. Use the alias if set, otherwise the key. The source field should come before this field in the fields list."
                     }
                 },
                 "required": [
@@ -392,6 +373,85 @@
                 "distinct": {
                     "type": "boolean",
                     "description": "If true, then the result set will only contain DISTINCT values"
+                },
+                "distinctOn": {
+                    "type": "object",
+                    "description": "Performs a distinct operation on specific key(s) and applies collision resolution rules to determine which record to keep when duplicates are found",
+                    "properties": {
+                        "keys": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "minItems": 1,
+                            "description": "The field(s) to use for determining uniqueness. Use the 'alias' if specified. Can be a single field or multiple fields for composite keys."
+                        },
+                        "resolution": {
+                            "type": "object",
+                            "description": "Rules to determine which record to keep when duplicates are found",
+                            "properties": {
+                                "strategy": {
+                                    "type": "string",
+                                    "enum": ["first", "last", "min", "max"],
+                                    "description": "Strategy for resolving which record to keep. 'first': Keep the first record based on orderBy field. 'last': Keep the last record based on orderBy field. 'min': Keep the record with the minimum value in orderBy field. 'max': Keep the record with the maximum value in orderBy field."
+                                },
+                                "orderBy": {
+                                    "type": "string",
+                                    "description": "Required for 'first', 'last', 'min', 'max' strategies. The field to use for ordering/comparison when selecting the record to keep."
+                                },
+                                "direction": {
+                                    "type": "string",
+                                    "enum": ["asc", "desc"],
+                                    "default": "asc",
+                                    "description": "For 'first' and 'last' strategies, the sort direction."
+                                }
+                            },
+                            "required": ["strategy"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["keys", "resolution"],
+                    "additionalProperties": false
+                },
+                "pivot": {
+                    "type": "object",
+                    "description": "Performs a pivot operation that transforms row values into columns. Groups data by the specified row keys, takes distinct values from the pivot column and creates a new column for each, aggregating the value column with the specified function. Cannot be used together with 'distinct' or 'distinctOn'.",
+                    "properties": {
+                        "rowKeys": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "minItems": 1,
+                            "description": "The field(s) that identify a row in the pivoted output (the GROUP BY keys). Use the 'alias' if specified."
+                        },
+                        "pivotColumn": {
+                            "type": "string",
+                            "description": "The field whose distinct values become new columns in the output."
+                        },
+                        "valueColumn": {
+                            "type": "string",
+                            "description": "The field whose values are aggregated into each pivot cell."
+                        },
+                        "aggregation": {
+                            "type": "string",
+                            "enum": ["sum", "count", "avg", "min", "max"],
+                            "description": "The aggregation function to apply when combining values."
+                        },
+                        "pivotValues": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "If provided, only these values from the pivot column will be used as output columns. This avoids a discovery pass over the data and makes the output shape statically known. If omitted, the distinct values are discovered automatically."
+                        },
+                        "columnPrefix": {
+                            "type": "string",
+                            "description": "Optional prefix for the generated pivot column names (e.g. 'revenue_' produces 'revenue_East', 'revenue_West')."
+                        }
+                    },
+                    "required": ["rowKeys", "pivotColumn", "valueColumn", "aggregation"],
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -409,8 +469,7 @@
         "name",
         "producers",
         "fields",
-        "outputs",
-        "_version"
+        "outputs"
     ],
     "additionalProperties": false,
     "definitions": {
@@ -504,6 +563,10 @@
                 "fixed": {
                     "type": "boolean",
                     "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
+                },
+                "copyFrom": {
+                    "type": "string",
+                    "description": "If set, this field will be added as new to the consumer dataset and will be a copy of the specified field. Use the alias if set, otherwise the key. The source field should come before this field in the fields list."
                 }
             },
             "required": [
@@ -845,7 +908,7 @@
                 },
                 {
                     "type": "object",
-                    "description": "Apply conditional logic to transform values based on comparison conditions",
+                    "description": "Apply conditional logic to transform values based on comparison conditions.",
                     "properties": {
                         "conditional": {
                             "type": "object",
@@ -888,6 +951,58 @@
                         }
                     },
                     "required": ["conditional"],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Map specific values to other values, similar to a switch/case statement. Matches are checked in order by strict equality. If no case matches, the default value is used (or the original value if no default is specified).",
+                    "properties": {
+                        "switch_case": {
+                            "type": "object",
+                            "properties": {
+                                "cases": {
+                                    "type": "array",
+                                    "description": "Array of when/then pairs evaluated in order. First matching case wins.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "when": {
+                                                "description": "The value to match against (strict equality)",
+                                                "oneOf": [
+                                                    { "type": "string" },
+                                                    { "type": "number" },
+                                                    { "type": "boolean" }
+                                                ]
+                                            },
+                                            "then": {
+                                                "description": "The value to return if the case matches",
+                                                "oneOf": [
+                                                    { "type": "string" },
+                                                    { "type": "number" },
+                                                    { "type": "boolean" }
+                                                ]
+                                            }
+                                        },
+                                        "required": ["when", "then"],
+                                        "additionalProperties": false
+                                    },
+                                    "minItems": 1
+                                },
+                                "default": {
+                                    "description": "Default value if no case matches. If not specified, the original value is kept.",
+                                    "oneOf": [
+                                        { "type": "string" },
+                                        { "type": "number" },
+                                        { "type": "boolean" },
+                                        { "type": "null" }
+                                    ]
+                                }
+                            },
+                            "required": ["cases"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": ["switch_case"],
                     "additionalProperties": false
                 },
                 {

@@ -118,6 +118,15 @@
         },
         "settings": {
             "type": "object",
+            "compressionType": {
+                "type": "string",
+                "enum": [
+                    "GZ",
+                    "TAR",
+                    "ZIP"
+                    ],
+                "description": "The compression type used from the file to read"
+            },
             "description": "Settings for the producer",
             "properties": {
                 "sqlTable": {
@@ -148,7 +157,7 @@
                         "XML",
                         "PARQUET"
                     ],
-                    "description": "The type of file to read"
+                    "description": "The type of file to read."
                 },
                 "delimiter": {
                     "type": "string",
@@ -174,8 +183,7 @@
         "name",
         "source",
         "dimensions",
-        "settings",
-        "_version"
+        "settings"
     ],
     "additionalProperties": false,
     "examples": [
@@ -201,6 +209,10 @@
                 {
                     "name": "email",
                     "type": "string",
+                    "format": {
+                        "type": "string",
+                        "description": "Format for datetype of the source ('YYYYMMDD', 'DD-MM-YYYY')"
+                    },
                     "classification": [
                         "PII",
                         "GDPR"
