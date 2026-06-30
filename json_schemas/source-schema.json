@@ -22,6 +22,7 @@
                 "aws-redshift",
                 "aws-dynamodb",
                 "aws-s3",
+                "aws-sqs",
                 "postgres",
                 "local",
                 "delta-share",
@@ -50,6 +51,10 @@
                 "host": {
                     "type": "string",
                     "description": "Hostname or endpoint of the data source"
+                },
+                "accountId": {
+                    "type": "string",
+                    "description": "AWS account ID used to construct resource URLs when only a resource name is provided"
                 },
                 "user": {
                     "type": "string",
@@ -94,6 +99,10 @@
                 "region": {
                     "type": "string",
                     "description": "AWS region"
+                },
+                "queue": {
+                    "type": "string",
+                    "description": "SQS queue URL or queue name"
                 },
                 "bucket": {
                     "type": "string",
@@ -201,6 +210,20 @@
                 "bucket": "analytics-data"
             },
             "_version": 2
+        },
+        {
+            "name": "Consumer Execute Queue",
+            "description": "SQS queue used as an alternative execute-consumer API",
+            "engine": "aws-sqs",
+            "authentication": {
+                "method": "access-secret-key",
+                "queue": "remora-execute-consumer",
+                "accountId": "{AWS_ACCOUNT_ID}",
+                "region": "us-east-1",
+                "accessKey": "{AWS_ACCESS_KEY_ID}",
+                "secretKey": "{AWS_SECRET_ACCESS_KEY}"
+            },
+            "_version": 1
         },
         {
             "name": "Redshift Data Warehouse",

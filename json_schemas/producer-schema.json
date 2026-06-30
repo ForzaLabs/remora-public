@@ -163,6 +163,10 @@
                     "type": "string",
                     "description": "The column delimiter for CSV or TXT files if different from the default (,)."
                 },
+                "disableHistory": {
+                    "type": "boolean",
+                    "description": "For Delta Share producers, skips sending the current table version in the query request body."
+                },
                 "hasHeaderRow": {
                     "type": "boolean",
                     "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true."

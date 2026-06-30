@@ -129,31 +129,70 @@
                         ]
                     },
                     "validate": {
-                        "type": "object",
-                        "description": "Rules to check field value compliance and data quality",
-                        "properties": {
-                            "min": {
-                                "type": "number",
-                                "description": "Minimum value for numeric fields"
+                        "type": "array",
+                        "description": "Rules to check field value compliance and data quality. Each validation has its own rule and action to take on failure.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "rule": {
+                                    "type": "object",
+                                    "description": "The validation rule to check",
+                                    "oneOf": [
+                                        {
+                                            "properties": { "min": { "type": "number", "description": "Minimum value for numeric fields" } },
+                                            "required": ["min"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "max": { "type": "number", "description": "Maximum value for numeric fields" } },
+                                            "required": ["max"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "regex": { "type": "string", "description": "Regular expression pattern to validate string fields" } },
+                                            "required": ["regex"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "required": { "type": "boolean", "const": true, "description": "Whether the field value must be present" } },
+                                            "required": ["required"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "min_length": { "type": "number", "description": "Minimum string length" } },
+                                            "required": ["min_length"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "max_length": { "type": "number", "description": "Maximum string length" } },
+                                            "required": ["max_length"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "in": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] }, "description": "Allowed values" } },
+                                            "required": ["in"],
+                                            "additionalProperties": false
+                                        },
+                                        {
+                                            "properties": { "not_in": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] }, "description": "Disallowed values" } },
+                                            "required": ["not_in"],
+                                            "additionalProperties": false
+                                        }
+                                    ]
+                                },
+                                "onFail": {
+                                    "type": "string",
+                                    "description": "Action to take when validation fails",
+                                    "enum": ["fail", "skip", "warn", "set_default"]
+                                }
                             },
-                            "max": {
-                                "type": "number",
-                                "description": "Maximum value for numeric fields"
-                            },
-                            "regex": {
-                                "type": "string",
-                                "description": "Regular expression pattern to validate string fields"
-                            },
-                            "required": {
-                                "type": "boolean",
-                                "description": "Whether the field is required"
-                            }
-                        },
-                        "additionalProperties": false
+                            "required": ["rule", "onFail"],
+                            "additionalProperties": false
+                        }
                     },
                     "onError": {
                         "type": "string",
-                        "description": "Action to take if an error occurs during transformations or validation",
+                        "description": "Action to take if an error occurs during transformations",
                         "enum": ["set_default", "skip", "fail"]
                     },
                     "default": {
@@ -166,6 +205,10 @@
                     "fixed": {
                         "type": "boolean",
                         "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
+                    },
+                    "lineCount": {
+                        "type": "boolean",
+                        "description": "If set, this field is populated with the 1-based source line number of the current record. For multi-worker file processing the final value is normalized during merge so it remains consistent across chunks."
                     },
                     "copyFrom": {
                         "type": "string",
@@ -463,6 +506,53 @@
         "_version": {
             "type": "number",
             "description": "Version number of the consumer configuration"
+        },
+        "validate": {
+            "type": "array",
+            "description": "Dataset-level validations applied to the final result set before export",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "rule": {
+                        "type": "object",
+                        "description": "The dataset validation rule to check",
+                        "oneOf": [
+                            {
+                                "properties": { "unique_fields": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Field(s) that must have unique values across the dataset" } },
+                                "required": ["unique_fields"],
+                                "additionalProperties": false
+                            },
+                            {
+                                "properties": { "min_rows": { "type": "number", "description": "Minimum number of rows expected in the dataset" } },
+                                "required": ["min_rows"],
+                                "additionalProperties": false
+                            },
+                            {
+                                "properties": { "max_rows": { "type": "number", "description": "Maximum number of rows allowed in the dataset" } },
+                                "required": ["max_rows"],
+                                "additionalProperties": false
+                            },
+                            {
+                                "properties": { "no_duplicates": { "type": "boolean", "const": true, "description": "No fully duplicate rows allowed" } },
+                                "required": ["no_duplicates"],
+                                "additionalProperties": false
+                            },
+                            {
+                                "properties": { "not_empty": { "type": "boolean", "const": true, "description": "Dataset must contain at least one row" } },
+                                "required": ["not_empty"],
+                                "additionalProperties": false
+                            }
+                        ]
+                    },
+                    "onFail": {
+                        "type": "string",
+                        "description": "Action to take when dataset validation fails",
+                        "enum": ["fail", "warn"]
+                    }
+                },
+                "required": ["rule", "onFail"],
+                "additionalProperties": false
+            }
         }
     },
     "required": [

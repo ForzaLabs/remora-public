@@ -63,6 +63,18 @@
                     "minimum": 1,
                     "description": "Maximum number of rows for SQL queries"
                 },
+                "API_QUEUE": {
+                    "type": "object",
+                    "required": ["source"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "source": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Name of an aws-sqs source used as an alternative execute-consumer API"
+                        }
+                    }
+                },
                 "STRING_MAX_CHARACTERS_LENGTH": {
                     "type": "integer",
                     "minimum": 1,
@@ -88,7 +100,10 @@
             "sources": ["/sources"],
             "schemas": ["/schemas"],
             "settings": {
-                "SQL_MAX_QUERY_ROWS": 10000
+                "SQL_MAX_QUERY_ROWS": 10000,
+                "API_QUEUE": {
+                    "source": "remora-api-queue"
+                }
             }
         }
     ]
