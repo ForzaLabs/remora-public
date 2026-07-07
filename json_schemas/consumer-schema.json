@@ -91,28 +91,6 @@
                         "type": "string",
                         "description": "If the key is ambiguous, set a 'from' with the name of the producer/consumer to get the key from"
                     },
-                    "grouping": {
-                        "type": "object",
-                        "description": "If set, group resulting items that have the same value for the 'groupingKey'",
-                        "properties": {
-                            "groupingKey": {
-                                "type": "string",
-                                "description": "Used to create hierarchical data structure (parent -> children)"
-                            },
-                            "subFields": {
-                                "type": "array",
-                                "description": "Recursive structure defining fields that should be pulled inside this grouped field",
-                                "items": {
-                                    "$ref": "#/definitions/consumerField"
-                                }
-                            }
-                        },
-                        "required": [
-                            "groupingKey",
-                            "subFields"
-                        ],
-                        "additionalProperties": false
-                    },
                     "transform": {
                         "description": "Optional list of transformations to apply to the dataset before returning the data",
                         "oneOf": [
@@ -139,43 +117,126 @@
                                     "description": "The validation rule to check",
                                     "oneOf": [
                                         {
-                                            "properties": { "min": { "type": "number", "description": "Minimum value for numeric fields" } },
-                                            "required": ["min"],
+                                            "properties": {
+                                                "min": {
+                                                    "type": "number",
+                                                    "description": "Minimum value for numeric fields"
+                                                }
+                                            },
+                                            "required": [
+                                                "min"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "max": { "type": "number", "description": "Maximum value for numeric fields" } },
-                                            "required": ["max"],
+                                            "properties": {
+                                                "max": {
+                                                    "type": "number",
+                                                    "description": "Maximum value for numeric fields"
+                                                }
+                                            },
+                                            "required": [
+                                                "max"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "regex": { "type": "string", "description": "Regular expression pattern to validate string fields" } },
-                                            "required": ["regex"],
+                                            "properties": {
+                                                "regex": {
+                                                    "type": "string",
+                                                    "description": "Regular expression pattern to validate string fields"
+                                                }
+                                            },
+                                            "required": [
+                                                "regex"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "required": { "type": "boolean", "const": true, "description": "Whether the field value must be present" } },
-                                            "required": ["required"],
+                                            "properties": {
+                                                "required": {
+                                                    "type": "boolean",
+                                                    "const": true,
+                                                    "description": "Whether the field value must be present"
+                                                }
+                                            },
+                                            "required": [
+                                                "required"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "min_length": { "type": "number", "description": "Minimum string length" } },
-                                            "required": ["min_length"],
+                                            "properties": {
+                                                "min_length": {
+                                                    "type": "number",
+                                                    "description": "Minimum string length"
+                                                }
+                                            },
+                                            "required": [
+                                                "min_length"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "max_length": { "type": "number", "description": "Maximum string length" } },
-                                            "required": ["max_length"],
+                                            "properties": {
+                                                "max_length": {
+                                                    "type": "number",
+                                                    "description": "Maximum string length"
+                                                }
+                                            },
+                                            "required": [
+                                                "max_length"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "in": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] }, "description": "Allowed values" } },
-                                            "required": ["in"],
+                                            "properties": {
+                                                "in": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "oneOf": [
+                                                            {
+                                                                "type": "string"
+                                                            },
+                                                            {
+                                                                "type": "number"
+                                                            },
+                                                            {
+                                                                "type": "boolean"
+                                                            }
+                                                        ]
+                                                    },
+                                                    "description": "Allowed values"
+                                                }
+                                            },
+                                            "required": [
+                                                "in"
+                                            ],
                                             "additionalProperties": false
                                         },
                                         {
-                                            "properties": { "not_in": { "type": "array", "items": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }] }, "description": "Disallowed values" } },
-                                            "required": ["not_in"],
+                                            "properties": {
+                                                "not_in": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "oneOf": [
+                                                            {
+                                                                "type": "string"
+                                                            },
+                                                            {
+                                                                "type": "number"
+                                                            },
+                                                            {
+                                                                "type": "boolean"
+                                                            }
+                                                        ]
+                                                    },
+                                                    "description": "Disallowed values"
+                                                }
+                                            },
+                                            "required": [
+                                                "not_in"
+                                            ],
                                             "additionalProperties": false
                                         }
                                     ]
@@ -183,17 +244,29 @@
                                 "onFail": {
                                     "type": "string",
                                     "description": "Action to take when validation fails",
-                                    "enum": ["fail", "skip", "warn", "set_default"]
+                                    "enum": [
+                                        "fail",
+                                        "skip",
+                                        "warn",
+                                        "set_default"
+                                    ]
                                 }
                             },
-                            "required": ["rule", "onFail"],
+                            "required": [
+                                "rule",
+                                "onFail"
+                            ],
                             "additionalProperties": false
                         }
                     },
                     "onError": {
                         "type": "string",
                         "description": "Action to take if an error occurs during transformations",
-                        "enum": ["set_default", "skip", "fail"]
+                        "enum": [
+                            "set_default",
+                            "skip",
+                            "fail"
+                        ]
                     },
                     "default": {
                         "description": "Default value of the field if it is missing (or on error if specified)"
@@ -231,21 +304,12 @@
                     "format": {
                         "type": "string",
                         "enum": [
-                            "SQL",
                             "API",
                             "CSV",
-                            "PARQUET",
-                            "JSON"
+                            "JSON",
+                            "TXT"
                         ],
-                        "description": "The output format of the consumer"
-                    },
-                    "accelerated": {
-                        "type": "boolean",
-                        "description": "If true and supported, the consumer will be materialized to improve query performance"
-                    },
-                    "direct": {
-                        "type": "boolean",
-                        "description": "If true, no view is created on the consumer side due to permission limitations"
+                        "description": "The output format of the consumer. JSON/CSV/TXT export to a file destination; API exposes the result over the API."
                     },
                     "exportDestination": {
                         "type": "string",
@@ -254,6 +318,10 @@
                     "exportName": {
                         "type": "string",
                         "description": "If the format is a file, forces the same name in the export file (extension is auto-added)"
+                    },
+                    "delimiter": {
+                        "type": "string",
+                        "description": "Only used when the format is 'TXT'. The single-character delimiter used between fields in the exported file. Defaults to a tab if not set."
                     },
                     "trigger": {
                         "type": "object",
@@ -299,6 +367,28 @@
                                     "sessionToken": {
                                         "type": "string",
                                         "description": "AWS session token for temporary credentials (for QUEUE triggers)"
+                                    },
+                                    "method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "access-secret-key",
+                                            "arn",
+                                            "implicit",
+                                            "iam"
+                                        ],
+                                        "description": "Credential method for the queue (QUEUE triggers). 'arn' assumes an IAM role via STS; 'implicit'/'iam' use the AWS SDK default chain (instance/task role); omit or 'access-secret-key' to use static keys."
+                                    },
+                                    "roleArn": {
+                                        "type": "string",
+                                        "description": "ARN of the IAM role to assume via STS when method is 'arn' (for QUEUE triggers)."
+                                    },
+                                    "roleSessionName": {
+                                        "type": "string",
+                                        "description": "Session name for the assumed-role credentials when method is 'arn' (for QUEUE triggers). Defaults to 'remora'."
+                                    },
+                                    "externalId": {
+                                        "type": "string",
+                                        "description": "Optional STS ExternalId for third-party / cross-account trust when method is 'arn' (for QUEUE triggers)."
                                     }
                                 },
                                 "additionalProperties": {
@@ -435,7 +525,12 @@
                             "properties": {
                                 "strategy": {
                                     "type": "string",
-                                    "enum": ["first", "last", "min", "max"],
+                                    "enum": [
+                                        "first",
+                                        "last",
+                                        "min",
+                                        "max"
+                                    ],
                                     "description": "Strategy for resolving which record to keep. 'first': Keep the first record based on orderBy field. 'last': Keep the last record based on orderBy field. 'min': Keep the record with the minimum value in orderBy field. 'max': Keep the record with the maximum value in orderBy field."
                                 },
                                 "orderBy": {
@@ -444,16 +539,24 @@
                                 },
                                 "direction": {
                                     "type": "string",
-                                    "enum": ["asc", "desc"],
+                                    "enum": [
+                                        "asc",
+                                        "desc"
+                                    ],
                                     "default": "asc",
                                     "description": "For 'first' and 'last' strategies, the sort direction."
                                 }
                             },
-                            "required": ["strategy"],
+                            "required": [
+                                "strategy"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["keys", "resolution"],
+                    "required": [
+                        "keys",
+                        "resolution"
+                    ],
                     "additionalProperties": false
                 },
                 "pivot": {
@@ -478,7 +581,13 @@
                         },
                         "aggregation": {
                             "type": "string",
-                            "enum": ["sum", "count", "avg", "min", "max"],
+                            "enum": [
+                                "sum",
+                                "count",
+                                "avg",
+                                "min",
+                                "max"
+                            ],
                             "description": "The aggregation function to apply when combining values."
                         },
                         "pivotValues": {
@@ -493,7 +602,12 @@
                             "description": "Optional prefix for the generated pivot column names (e.g. 'revenue_' produces 'revenue_East', 'revenue_West')."
                         }
                     },
-                    "required": ["rowKeys", "pivotColumn", "valueColumn", "aggregation"],
+                    "required": [
+                        "rowKeys",
+                        "pivotColumn",
+                        "valueColumn",
+                        "aggregation"
+                    ],
                     "additionalProperties": false
                 }
             },
@@ -502,6 +616,10 @@
         "schema": {
             "type": "string",
             "description": "The name of the JSON schema in this project that this consumer needs to adhere to"
+        },
+        "maximumFileSize": {
+            "type": "number",
+            "description": "The maximum size of each output file, expressed in Gb. When the current output file exceeds this size it is rotated and a new file is started."
         },
         "_version": {
             "type": "number",
@@ -518,28 +636,69 @@
                         "description": "The dataset validation rule to check",
                         "oneOf": [
                             {
-                                "properties": { "unique_fields": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Field(s) that must have unique values across the dataset" } },
-                                "required": ["unique_fields"],
+                                "properties": {
+                                    "unique_fields": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "minItems": 1,
+                                        "description": "Field(s) that must have unique values across the dataset"
+                                    }
+                                },
+                                "required": [
+                                    "unique_fields"
+                                ],
                                 "additionalProperties": false
                             },
                             {
-                                "properties": { "min_rows": { "type": "number", "description": "Minimum number of rows expected in the dataset" } },
-                                "required": ["min_rows"],
+                                "properties": {
+                                    "min_rows": {
+                                        "type": "number",
+                                        "description": "Minimum number of rows expected in the dataset"
+                                    }
+                                },
+                                "required": [
+                                    "min_rows"
+                                ],
                                 "additionalProperties": false
                             },
                             {
-                                "properties": { "max_rows": { "type": "number", "description": "Maximum number of rows allowed in the dataset" } },
-                                "required": ["max_rows"],
+                                "properties": {
+                                    "max_rows": {
+                                        "type": "number",
+                                        "description": "Maximum number of rows allowed in the dataset"
+                                    }
+                                },
+                                "required": [
+                                    "max_rows"
+                                ],
                                 "additionalProperties": false
                             },
                             {
-                                "properties": { "no_duplicates": { "type": "boolean", "const": true, "description": "No fully duplicate rows allowed" } },
-                                "required": ["no_duplicates"],
+                                "properties": {
+                                    "no_duplicates": {
+                                        "type": "boolean",
+                                        "const": true,
+                                        "description": "No fully duplicate rows allowed"
+                                    }
+                                },
+                                "required": [
+                                    "no_duplicates"
+                                ],
                                 "additionalProperties": false
                             },
                             {
-                                "properties": { "not_empty": { "type": "boolean", "const": true, "description": "Dataset must contain at least one row" } },
-                                "required": ["not_empty"],
+                                "properties": {
+                                    "not_empty": {
+                                        "type": "boolean",
+                                        "const": true,
+                                        "description": "Dataset must contain at least one row"
+                                    }
+                                },
+                                "required": [
+                                    "not_empty"
+                                ],
                                 "additionalProperties": false
                             }
                         ]
@@ -547,10 +706,16 @@
                     "onFail": {
                         "type": "string",
                         "description": "Action to take when dataset validation fails",
-                        "enum": ["fail", "warn"]
+                        "enum": [
+                            "fail",
+                            "warn"
+                        ]
                     }
                 },
-                "required": ["rule", "onFail"],
+                "required": [
+                    "rule",
+                    "onFail"
+                ],
                 "additionalProperties": false
             }
         }
@@ -563,107 +728,6 @@
     ],
     "additionalProperties": false,
     "definitions": {
-        "consumerField": {
-            "type": "object",
-            "properties": {
-                "key": {
-                    "type": "string",
-                    "description": "The dimension/measure of the producer OR '*'. If '*' then return all dimensions"
-                },
-                "alias": {
-                    "type": "string",
-                    "description": "If set, changes the key returned by the consumer to this alias"
-                },
-                "from": {
-                    "type": "string",
-                    "description": "If the key is ambiguous, set a 'from' with the name of the producer/consumer to get the key from"
-                },
-                "grouping": {
-                    "type": "object",
-                    "description": "If set, group resulting items that have the same value for the 'groupingKey'",
-                    "properties": {
-                        "groupingKey": {
-                            "type": "string",
-                            "description": "Used to create hierarchical data structure (parent -> children)"
-                        },
-                        "subFields": {
-                            "type": "array",
-                            "description": "Recursive structure defining fields that should be pulled inside this grouped field",
-                            "items": {
-                                "$ref": "#/definitions/consumerField"
-                            }
-                        }
-                    },
-                    "required": [
-                        "groupingKey",
-                        "subFields"
-                    ],
-                    "additionalProperties": false
-                },
-                "transform": {
-                    "description": "Optional list of transformations to apply to the dataset before returning the data",
-                    "oneOf": [
-                        {
-                            "$ref": "#/definitions/singleTransformation"
-                        },
-                        {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/singleTransformation"
-                            },
-                            "description": "A list of transformations to be applied in sequence"
-                        }
-                    ]
-                },
-                "validate": {
-                    "type": "object",
-                    "description": "Rules to check field value compliance and data quality",
-                    "properties": {
-                        "min": {
-                            "type": "number",
-                            "description": "Minimum value for numeric fields"
-                        },
-                        "max": {
-                            "type": "number",
-                            "description": "Maximum value for numeric fields"
-                        },
-                        "regex": {
-                            "type": "string",
-                            "description": "Regular expression pattern to validate string fields"
-                        },
-                        "required": {
-                            "type": "boolean",
-                            "description": "Whether the field is required"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "onError": {
-                    "type": "string",
-                    "description": "Action to take if an error occurs during transformations or validation",
-                    "enum": ["set_default", "skip", "fail"]
-                },
-                "default": {
-                    "description": "Default value of the field if it is missing (or on error if specified)"
-                },
-                "hidden": {
-                    "type": "boolean",
-                    "description": "If set, the field is kept and used during processing, but omitted when exporting the data"
-                },
-                "fixed": {
-                    "type": "boolean",
-                    "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
-                },
-                "copyFrom": {
-                    "type": "string",
-                    "description": "If set, this field will be added as new to the consumer dataset and will be a copy of the specified field. Use the alias if set, otherwise the key. The source field should come before this field in the fields list."
-                }
-            },
-            "required": [
-                "key"
-            ],
-            "additionalProperties": false
-        },
         "singleTransformation": {
             "oneOf": [
                 {
@@ -672,36 +736,113 @@
                         "cast": {
                             "type": "string",
                             "description": "Cast the value to a specific type",
-                            "enum": ["string", "number", "datetime", "boolean"]
+                            "enum": [
+                                "string",
+                                "number",
+                                "datetime",
+                                "boolean"
+                            ]
                         },
                         "format": {
                             "type": "string",
                             "description": "Optional format for date parsing or string formatting (e.g. YYYY-MM-DD, DD/MM/YY)"
                         }
                     },
-                    "required": ["cast"],
+                    "required": [
+                        "cast"
+                    ],
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
                     "properties": {
                         "multiply": {
-                            "type": "number",
-                            "description": "Multiply the numeric value by this factor"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "Multiply the numeric value by this factor. Use \"$fieldName\" to multiply by another field's value."
                         }
                     },
-                    "required": ["multiply"],
+                    "required": [
+                        "multiply"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "multiplyBy": {
+                            "type": "object",
+                            "properties": {
+                                "fields": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "Field names whose values are multiplied together."
+                                }
+                            },
+                            "required": [
+                                "fields"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "multiplyBy"
+                    ],
                     "additionalProperties": false
                 },
                 {
                     "type": "object",
                     "properties": {
                         "add": {
-                            "type": "number",
-                            "description": "Add this number to the numeric value"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "Add this number to the numeric value. Use \"$fieldName\" to add another field's value."
                         }
                     },
-                    "required": ["add"],
+                    "required": [
+                        "add"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "addBy": {
+                            "type": "object",
+                            "properties": {
+                                "fields": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "description": "Field names whose values are added together."
+                                }
+                            },
+                            "required": [
+                                "fields"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "addBy"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -709,11 +850,19 @@
                     "properties": {
                         "extract": {
                             "type": "string",
-                            "enum": ["year", "month", "day", "hour", "minute"],
+                            "enum": [
+                                "year",
+                                "month",
+                                "day",
+                                "hour",
+                                "minute"
+                            ],
                             "description": "Extract a component from a date value"
                         }
                     },
-                    "required": ["extract"],
+                    "required": [
+                        "extract"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -727,11 +876,15 @@
                                     "description": "The separator to use when joining array elements"
                                 }
                             },
-                            "required": ["separator"],
+                            "required": [
+                                "separator"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["concat"],
+                    "required": [
+                        "concat"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -749,11 +902,16 @@
                                     "description": "The index of the split part to keep"
                                 }
                             },
-                            "required": ["separator", "index"],
+                            "required": [
+                                "separator",
+                                "index"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["split"],
+                    "required": [
+                        "split"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -771,11 +929,15 @@
                                     "description": "Regex flags (e.g., 'i' for case-insensitive)"
                                 }
                             },
-                            "required": ["pattern"],
+                            "required": [
+                                "pattern"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["regex_match"],
+                    "required": [
+                        "regex_match"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -797,11 +959,16 @@
                                     "description": "Regex flags (e.g., 'g' for global)"
                                 }
                             },
-                            "required": ["pattern", "replacement"],
+                            "required": [
+                                "pattern",
+                                "replacement"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["regex_replace"],
+                    "required": [
+                        "regex_replace"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -823,11 +990,16 @@
                                     "description": "Regex flags (e.g., 'i' for case-insensitive)"
                                 }
                             },
-                            "required": ["pattern", "group"],
+                            "required": [
+                                "pattern",
+                                "group"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["regex_extract"],
+                    "required": [
+                        "regex_extract"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -838,7 +1010,9 @@
                             "description": "Trim whitespace from both ends of the string"
                         }
                     },
-                    "required": ["trim"],
+                    "required": [
+                        "trim"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -849,7 +1023,9 @@
                             "description": "Convert string to lowercase"
                         }
                     },
-                    "required": ["to_lowercase"],
+                    "required": [
+                        "to_lowercase"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -860,7 +1036,9 @@
                             "description": "Convert string to uppercase"
                         }
                     },
-                    "required": ["to_uppercase"],
+                    "required": [
+                        "to_uppercase"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -871,7 +1049,9 @@
                             "description": "Capitalize the first letter of the string"
                         }
                     },
-                    "required": ["capitalize"],
+                    "required": [
+                        "capitalize"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -889,11 +1069,15 @@
                                     "description": "Optional ending position of substring"
                                 }
                             },
-                            "required": ["start"],
+                            "required": [
+                                "start"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["substring"],
+                    "required": [
+                        "substring"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -913,11 +1097,16 @@
                                     "maxLength": 1
                                 }
                             },
-                            "required": ["length", "char"],
+                            "required": [
+                                "length",
+                                "char"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["pad_start"],
+                    "required": [
+                        "pad_start"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -937,11 +1126,16 @@
                                     "maxLength": 1
                                 }
                             },
-                            "required": ["length", "char"],
+                            "required": [
+                                "length",
+                                "char"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["pad_end"],
+                    "required": [
+                        "pad_end"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -949,10 +1143,12 @@
                     "properties": {
                         "prepend": {
                             "type": "string",
-                            "description": "String to add at the beginning"
+                            "description": "String to add at the beginning. Use \"$fieldName\" to prepend another field's value (\"$$\" escapes a literal leading $)."
                         }
                     },
-                    "required": ["prepend"],
+                    "required": [
+                        "prepend"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -960,10 +1156,12 @@
                     "properties": {
                         "append": {
                             "type": "string",
-                            "description": "String to add at the end"
+                            "description": "String to add at the end. Use \"$fieldName\" to append another field's value (\"$$\" escapes a literal leading $)."
                         }
                     },
-                    "required": ["append"],
+                    "required": [
+                        "append"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -989,11 +1187,15 @@
                                     "description": "Optional template string with placeholders like '{field1} - {field2}'"
                                 }
                             },
-                            "required": ["fields"],
+                            "required": [
+                                "fields"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["combine_fields"],
+                    "required": [
+                        "combine_fields"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1013,34 +1215,55 @@
                                                 "$ref": "#/definitions/comparisonCondition"
                                             },
                                             "then": {
-                                                "description": "The value to return if the condition matches",
+                                                "description": "The value to return if the condition matches. Use \"$fieldName\" to return another field's value.",
                                                 "oneOf": [
-                                                    { "type": "string" },
-                                                    { "type": "number" },
-                                                    { "type": "boolean" }
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "number"
+                                                    },
+                                                    {
+                                                        "type": "boolean"
+                                                    }
                                                 ]
                                             }
                                         },
-                                        "required": ["if", "then"],
+                                        "required": [
+                                            "if",
+                                            "then"
+                                        ],
                                         "additionalProperties": false
                                     },
                                     "minItems": 1
                                 },
                                 "else": {
-                                    "description": "Default value if no clause matches. If not specified, the original value is kept.",
+                                    "description": "Default value if no clause matches. If not specified, the original value is kept. Use \"$fieldName\" to return another field's value.",
                                     "oneOf": [
-                                        { "type": "string" },
-                                        { "type": "number" },
-                                        { "type": "boolean" },
-                                        { "type": "null" }
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
                                     ]
                                 }
                             },
-                            "required": ["clauses"],
+                            "required": [
+                                "clauses"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["conditional"],
+                    "required": [
+                        "conditional"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1059,40 +1282,67 @@
                                             "when": {
                                                 "description": "The value to match against (strict equality)",
                                                 "oneOf": [
-                                                    { "type": "string" },
-                                                    { "type": "number" },
-                                                    { "type": "boolean" }
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "number"
+                                                    },
+                                                    {
+                                                        "type": "boolean"
+                                                    }
                                                 ]
                                             },
                                             "then": {
-                                                "description": "The value to return if the case matches",
+                                                "description": "The value to return if the case matches. Use \"$fieldName\" to return another field's value.",
                                                 "oneOf": [
-                                                    { "type": "string" },
-                                                    { "type": "number" },
-                                                    { "type": "boolean" }
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "number"
+                                                    },
+                                                    {
+                                                        "type": "boolean"
+                                                    }
                                                 ]
                                             }
                                         },
-                                        "required": ["when", "then"],
+                                        "required": [
+                                            "when",
+                                            "then"
+                                        ],
                                         "additionalProperties": false
                                     },
                                     "minItems": 1
                                 },
                                 "default": {
-                                    "description": "Default value if no case matches. If not specified, the original value is kept.",
+                                    "description": "Default value if no case matches. If not specified, the original value is kept. Use \"$fieldName\" to return another field's value.",
                                     "oneOf": [
-                                        { "type": "string" },
-                                        { "type": "number" },
-                                        { "type": "boolean" },
-                                        { "type": "null" }
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
                                     ]
                                 }
                             },
-                            "required": ["cases"],
+                            "required": [
+                                "cases"
+                            ],
                             "additionalProperties": false
                         }
                     },
-                    "required": ["switch_case"],
+                    "required": [
+                        "switch_case"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1100,11 +1350,129 @@
                     "properties": {
                         "mask": {
                             "type": "string",
-                            "enum": ["hash", "mask", "crypt", "random", "seeded-random", "none"],
+                            "enum": [
+                                "hash",
+                                "mask",
+                                "crypt",
+                                "random",
+                                "seeded-random",
+                                "none"
+                            ],
                             "description": "Apply masking to the field value for data privacy. Options: 'hash' (one-way hash), 'mask' (replace with asterisks), 'crypt' (reversible encryption), 'random' (random value), 'seeded-random' (consistent random value per input), 'none' (no masking)"
                         }
                     },
-                    "required": ["mask"],
+                    "required": [
+                        "mask"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "bit_extract": {
+                            "type": "object",
+                            "properties": {
+                                "position": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 52,
+                                    "description": "0-based bit index to extract from the integer bitmask (least-significant bit = 0)"
+                                },
+                                "as_boolean": {
+                                    "type": "boolean",
+                                    "description": "Return true/false instead of 1/0"
+                                }
+                            },
+                            "required": [
+                                "position"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "bit_extract"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "date_format": {
+                            "type": "object",
+                            "properties": {
+                                "input_fmt": {
+                                    "type": "string",
+                                    "description": "dayjs tokens describing the source date string, e.g. DDMMYYYY"
+                                },
+                                "output_fmt": {
+                                    "type": "string",
+                                    "description": "dayjs tokens for the output date string, e.g. YYYY-MM-DD"
+                                },
+                                "strict": {
+                                    "type": "boolean",
+                                    "description": "Strict parsing of the input format (default true)"
+                                }
+                            },
+                            "required": [
+                                "input_fmt",
+                                "output_fmt"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "date_format"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "description": "Map a code to a value using the output of another consumer as the lookup table. The referenced consumer is executed to build a code->value table; keep it small and cheap.",
+                    "properties": {
+                        "code_lookup": {
+                            "type": "object",
+                            "properties": {
+                                "consumer": {
+                                    "type": "string",
+                                    "description": "Name of the consumer whose output is the lookup table"
+                                },
+                                "key": {
+                                    "type": "string",
+                                    "description": "Field in that consumer's output used as the map key (the code)"
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "description": "Field in that consumer's output returned as the mapped value"
+                                },
+                                "default": {
+                                    "description": "Value returned when the code is not found. If omitted, the field's onError policy applies.",
+                                    "oneOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "type": "null"
+                                        }
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "consumer",
+                                "key",
+                                "value"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "code_lookup"
+                    ],
                     "additionalProperties": false
                 }
             ]
@@ -1117,11 +1485,21 @@
                     "description": "Check if the numeric value is greater than the specified number",
                     "properties": {
                         "greater_than": {
-                            "type": "number",
-                            "description": "The value must be greater than this number"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "The value must be greater than this number. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["greater_than"],
+                    "required": [
+                        "greater_than"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1129,11 +1507,21 @@
                     "description": "Check if the numeric value is greater than or equal to the specified number",
                     "properties": {
                         "greater_than_or_equal": {
-                            "type": "number",
-                            "description": "The value must be greater than or equal to this number"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "The value must be greater than or equal to this number. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["greater_than_or_equal"],
+                    "required": [
+                        "greater_than_or_equal"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1141,11 +1529,21 @@
                     "description": "Check if the numeric value is less than the specified number",
                     "properties": {
                         "less_than": {
-                            "type": "number",
-                            "description": "The value must be less than this number"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "The value must be less than this number. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["less_than"],
+                    "required": [
+                        "less_than"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1153,11 +1551,21 @@
                     "description": "Check if the numeric value is less than or equal to the specified number",
                     "properties": {
                         "less_than_or_equal": {
-                            "type": "number",
-                            "description": "The value must be less than or equal to this number"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "string",
+                                    "pattern": "^\\$"
+                                }
+                            ],
+                            "description": "The value must be less than or equal to this number. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["less_than_or_equal"],
+                    "required": [
+                        "less_than_or_equal"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1165,15 +1573,23 @@
                     "description": "Check if the value equals the specified value (strict equality)",
                     "properties": {
                         "equals": {
-                            "description": "The value must equal this exactly",
+                            "description": "The value must equal this exactly. Use \"$fieldName\" to compare against another field's value.",
                             "oneOf": [
-                                { "type": "string" },
-                                { "type": "number" },
-                                { "type": "boolean" }
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "boolean"
+                                }
                             ]
                         }
                     },
-                    "required": ["equals"],
+                    "required": [
+                        "equals"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1181,15 +1597,23 @@
                     "description": "Check if the value does not equal the specified value",
                     "properties": {
                         "not_equals": {
-                            "description": "The value must not equal this",
+                            "description": "The value must not equal this. Use \"$fieldName\" to compare against another field's value.",
                             "oneOf": [
-                                { "type": "string" },
-                                { "type": "number" },
-                                { "type": "boolean" }
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "boolean"
+                                }
                             ]
                         }
                     },
-                    "required": ["not_equals"],
+                    "required": [
+                        "not_equals"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1198,18 +1622,26 @@
                     "properties": {
                         "in": {
                             "type": "array",
-                            "description": "The value must be one of these values",
+                            "description": "The value must be one of these values. A \"$fieldName\" entry compares against another field's value.",
                             "items": {
                                 "oneOf": [
-                                    { "type": "string" },
-                                    { "type": "number" },
-                                    { "type": "boolean" }
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "boolean"
+                                    }
                                 ]
                             },
                             "minItems": 1
                         }
                     },
-                    "required": ["in"],
+                    "required": [
+                        "in"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1218,18 +1650,26 @@
                     "properties": {
                         "not_in": {
                             "type": "array",
-                            "description": "The value must not be any of these values",
+                            "description": "The value must not be any of these values. A \"$fieldName\" entry compares against another field's value.",
                             "items": {
                                 "oneOf": [
-                                    { "type": "string" },
-                                    { "type": "number" },
-                                    { "type": "boolean" }
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "number"
+                                    },
+                                    {
+                                        "type": "boolean"
+                                    }
                                 ]
                             },
                             "minItems": 1
                         }
                     },
-                    "required": ["not_in"],
+                    "required": [
+                        "not_in"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1238,10 +1678,12 @@
                     "properties": {
                         "starts_with": {
                             "type": "string",
-                            "description": "The string value must start with this prefix"
+                            "description": "The string value must start with this prefix. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["starts_with"],
+                    "required": [
+                        "starts_with"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1250,10 +1692,12 @@
                     "properties": {
                         "ends_with": {
                             "type": "string",
-                            "description": "The string value must end with this suffix"
+                            "description": "The string value must end with this suffix. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["ends_with"],
+                    "required": [
+                        "ends_with"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1262,10 +1706,12 @@
                     "properties": {
                         "contains": {
                             "type": "string",
-                            "description": "The string value must contain this substring"
+                            "description": "The string value must contain this substring. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["contains"],
+                    "required": [
+                        "contains"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1274,10 +1720,12 @@
                     "properties": {
                         "not_contains": {
                             "type": "string",
-                            "description": "The string value must not contain this substring"
+                            "description": "The string value must not contain this substring. Use \"$fieldName\" to compare against another field's value."
                         }
                     },
-                    "required": ["not_contains"],
+                    "required": [
+                        "not_contains"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1290,7 +1738,9 @@
                             "description": "Returns true if the value is null, undefined, or an empty/whitespace-only string"
                         }
                     },
-                    "required": ["is_empty"],
+                    "required": [
+                        "is_empty"
+                    ],
                     "additionalProperties": false
                 },
                 {
@@ -1303,7 +1753,9 @@
                             "description": "Returns true if the value is not null, not undefined, and not an empty/whitespace-only string"
                         }
                     },
-                    "required": ["is_not_empty"],
+                    "required": [
+                        "is_not_empty"
+                    ],
                     "additionalProperties": false
                 }
             ]
@@ -1314,7 +1766,9 @@
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["move-file"],
+                    "enum": [
+                        "move-file"
+                    ],
                     "description": "The action to perform"
                 },
                 "moveToDestination": {
@@ -1322,7 +1776,9 @@
                     "description": "If the action is 'move-file', this specifies the source destination in remora where the source file should be moved"
                 }
             },
-            "required": ["action"],
+            "required": [
+                "action"
+            ],
             "additionalProperties": false
         }
     },
@@ -1360,25 +1816,17 @@
                     "from": "UserData"
                 },
                 {
-                    "key": "orders",
-                    "grouping": {
-                        "groupingKey": "order_items",
-                        "subFields": [
-                            {
-                                "key": "id",
-                                "from": "OrderData",
-                                "alias": "order_id"
-                            },
-                            {
-                                "key": "created_at",
-                                "from": "OrderData"
-                            },
-                            {
-                                "key": "total_amount",
-                                "from": "OrderData"
-                            }
-                        ]
-                    }
+                    "key": "id",
+                    "from": "OrderData",
+                    "alias": "order_id"
+                },
+                {
+                    "key": "created_at",
+                    "from": "OrderData"
+                },
+                {
+                    "key": "total_amount",
+                    "from": "OrderData"
                 }
             ],
             "outputs": [

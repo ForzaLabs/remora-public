@@ -44,6 +44,10 @@
                         ],
                         "description": "The data type of the dimension"
                     },
+                    "format": {
+                        "type": "string",
+                        "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
+                    },
                     "alias": {
                         "type": "string",
                         "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
@@ -72,7 +76,7 @@
                             "mask",
                             "crypt",
                             "random",
-                            "seeded-random", 
+                            "seeded-random",
                             "none",
                             "{REMORA_MASK_IN_DEV}"
                         ]
@@ -118,15 +122,6 @@
         },
         "settings": {
             "type": "object",
-            "compressionType": {
-                "type": "string",
-                "enum": [
-                    "GZ",
-                    "TAR",
-                    "ZIP"
-                    ],
-                "description": "The compression type used from the file to read"
-            },
             "description": "Settings for the producer",
             "properties": {
                 "sqlTable": {
@@ -150,7 +145,7 @@
                     "enum": [
                         "JSON",
                         "JSONL",
-                        "CSV", 
+                        "CSV",
                         "TXT",
                         "XLS",
                         "XLSX",
@@ -172,8 +167,36 @@
                     "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true."
                 },
                 "sheetName": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "For Excel files (.xls/.xlsx), specifies the name of the sheet to read data from. If not specified, the first sheet will be used."
+                },
+                "compressionType": {
+                    "type": "string",
+                    "enum": [
+                        "GZ",
+                        "ZIP",
+                        "TAR"
+                    ],
+                    "description": "The compression of the source file. The file is decompressed before parsing."
+                },
+                "startRow": {
+                    "type": "number",
+                    "description": "For Excel files (.xls/.xlsx), the 1-indexed row to start reading from (e.g. 3 skips rows 1-2)."
+                },
+                "startColumn": {
+                    "type": "number",
+                    "description": "For Excel files (.xls/.xlsx), the 1-indexed column to start reading from (e.g. 2 starts at column B)."
+                },
+                "httpApi": {
+                    "type": "object",
+                    "description": "Additional settings when the source is an HTTP API.",
+                    "properties": {
+                        "dataProperty": {
+                            "type": "string",
+                            "description": "If the response wraps the records in a property, its name (e.g. 'result' for { success: true, result: [...] })."
+                        }
+                    },
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false
@@ -213,10 +236,6 @@
                 {
                     "name": "email",
                     "type": "string",
-                    "format": {
-                        "type": "string",
-                        "description": "Format for datetype of the source ('YYYYMMDD', 'DD-MM-YYYY')"
-                    },
                     "classification": [
                         "PII",
                         "GDPR"

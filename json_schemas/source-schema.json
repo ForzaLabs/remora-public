@@ -20,10 +20,8 @@
             "type": "string",
             "enum": [
                 "aws-redshift",
-                "aws-dynamodb",
                 "aws-s3",
                 "aws-sqs",
-                "postgres",
                 "local",
                 "delta-share",
                 "http-api"
@@ -44,6 +42,7 @@
                         "implicit",
                         "bearer-token",
                         "api-key",
+                        "oidc",
                         "none"
                     ],
                     "description": "The authentication method to use"
@@ -112,6 +111,18 @@
                     "type": "string",
                     "description": "IAM role or profile name"
                 },
+                "roleArn": {
+                    "type": "string",
+                    "description": "ARN of the IAM role to assume via STS (method 'arn'), e.g. arn:aws:iam::123456789012:role/remora-reader. The base identity that assumes it comes from the AWS SDK default credential chain, not from this config."
+                },
+                "roleSessionName": {
+                    "type": "string",
+                    "description": "Session name attached to the assumed-role credentials (method 'arn'). Defaults to 'remora'."
+                },
+                "externalId": {
+                    "type": "string",
+                    "description": "Optional STS ExternalId for third-party / cross-account trust policies (method 'arn')."
+                },
                 "clusterId": {
                     "type": "string",
                     "description": "Redshift cluster identifier"
@@ -127,6 +138,35 @@
                 "bearerToken": {
                     "type": "string",
                     "description": "Bearer token used for authentication (Delta Sharing or HTTP API)"
+                },
+                "tokenEndpoint": {
+                    "type": "string",
+                    "description": "OAuth2 token endpoint used with the 'oidc' method to obtain an access token via the client-credentials grant (e.g. Okta or Cognito)"
+                },
+                "clientId": {
+                    "type": "string",
+                    "description": "OAuth2 client identifier for the 'oidc' method"
+                },
+                "clientSecret": {
+                    "type": "string",
+                    "description": "OAuth2 client secret for the 'oidc' method"
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Space-delimited OAuth2 scopes to request (required by Okta/Cognito for client-credentials)"
+                },
+                "audience": {
+                    "type": "string",
+                    "description": "Optional OAuth2 audience/resource parameter for IdPs that require it"
+                },
+                "clientAuthMethod": {
+                    "type": "string",
+                    "enum": [
+                        "basic",
+                        "post"
+                    ],
+                    "description": "How client credentials are sent to the token endpoint: HTTP Basic header ('basic', default) or request body ('post')",
+                    "default": "basic"
                 },
                 "url": {
                     "type": "string",
@@ -149,7 +189,13 @@
                 },
                 "httpMethod": {
                     "type": "string",
-                    "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+                    "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                    ],
                     "description": "HTTP method to use for API requests",
                     "default": "GET"
                 },
@@ -169,7 +215,9 @@
                     "minimum": 1000
                 }
             },
-            "required": ["method"]
+            "required": [
+                "method"
+            ]
         },
         "_version": {
             "type": "number",
@@ -183,21 +231,6 @@
     ],
     "additionalProperties": false,
     "examples": [
-        {
-            "name": "Production PostgreSQL Database",
-            "description": "Main production database for customer data",
-            "engine": "postgres",
-            "authentication": {
-                "method": "username-password",
-                "host": "prod-db.example.com",
-                "user": "app_user",
-                "password": "password123",
-                "database": "customers",
-                "schema": "public",
-                "port": "5432"
-            },
-            "_version": 1
-        },
         {
             "name": "Data Lake",
             "description": "AWS S3 bucket containing analytics data",
@@ -240,6 +273,19 @@
             "_version": 1
         },
         {
+            "name": "S3 via assumed IAM role",
+            "description": "S3 source that assumes a cross-account IAM role via STS. Base identity comes from the SDK default chain (instance/task role, SSO, or an assume-only key in env vars) — no data-access keys stored here.",
+            "engine": "aws-s3",
+            "authentication": {
+                "method": "arn",
+                "region": "eu-west-1",
+                "bucket": "analytics-exports",
+                "roleArn": "arn:aws:iam::123456789012:role/remora-s3-reader",
+                "externalId": "{REMORA_STS_EXTERNAL_ID}"
+            },
+            "_version": 1
+        },
+        {
             "name": "REST API with Bearer Token",
             "description": "HTTP API source with bearer token authentication",
             "engine": "http-api",
@@ -265,6 +311,23 @@
                     "Accept": "application/json"
                 },
                 "httpMethod": "GET"
+            },
+            "_version": 1
+        },
+        {
+            "name": "Delta Share with OIDC",
+            "description": "Delta Sharing source authenticated via OAuth2 client-credentials (Okta/Cognito)",
+            "engine": "delta-share",
+            "authentication": {
+                "method": "oidc",
+                "host": "https://sharing.example.com/delta-sharing",
+                "share": "my_share",
+                "schema": "my_schema",
+                "table": "my_table",
+                "tokenEndpoint": "https://example.okta.com/oauth2/default/v1/token",
+                "clientId": "{DELTA_SHARE_CLIENT_ID}",
+                "clientSecret": "{DELTA_SHARE_CLIENT_SECRET}",
+                "scope": "delta_sharing"
             },
             "_version": 1
         }
