@@ -1767,13 +1767,21 @@
                 "action": {
                     "type": "string",
                     "enum": [
-                        "move-file"
+                        "move-file",
+                        "run-consumer"
                     ],
                     "description": "The action to perform"
                 },
                 "moveToDestination": {
                     "type": "string",
                     "description": "If the action is 'move-file', this specifies the source destination in remora where the source file should be moved"
+                },
+                "consumers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "If the action is 'run-consumer', the names of the consumers to run sequentially once this output finishes"
                 }
             },
             "required": [
