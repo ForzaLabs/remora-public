@@ -1,0 +1,60 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Code Set Schema",
+    "description": "A named, reusable set of allowed values used to drive synthetic-data generation (the 'synth' command). Exactly one of 'values' or 'records' must be provided.",
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique name; referenced from a producer dimension's 'codeSet'."
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional description of the code set"
+        },
+        "values": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": ["string", "number", "boolean"]
+            },
+            "description": "Flat list form: one value is picked per row. Mutually exclusive with 'records'."
+        },
+        "records": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                    "type": ["string", "number", "boolean"]
+                }
+            },
+            "description": "Structured form: correlated rows. Dimensions bind to a field and land on the same row per record. Mutually exclusive with 'values'."
+        }
+    },
+    "oneOf": [
+        { "required": ["values"], "properties": { "values": { "type": "array" } } },
+        { "required": ["records"], "properties": { "records": { "type": "array" } } }
+    ],
+    "additionalProperties": false,
+    "examples": [
+        {
+            "name": "gap_statuses",
+            "values": ["OPEN", "CLOSED", "COMPLIANT", "NON-COMPLIANT", "EXCLUDED"]
+        },
+        {
+            "name": "hedis_measures",
+            "records": [
+                { "code": "CBP", "name": "Controlling High Blood Pressure", "system": "LOINC" },
+                { "code": "COL", "name": "Colorectal Cancer Screening", "system": "CPT" }
+            ]
+        }
+    ]
+}

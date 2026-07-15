@@ -56,6 +56,10 @@
                         "type": "boolean",
                         "description": "Whether this is a primary key column or not"
                     },
+                    "nullable": {
+                        "type": "boolean",
+                        "description": "Declares whether this dimension is allowed to hold null/missing values. Descriptive metadata only: it documents intent for consumers, schema generation and AI mappers, and does not change runtime behaviour (nulls are already passed through untouched). Use a consumer field 'required' validation to enforce presence."
+                    },
                     "classification": {
                         "type": "array",
                         "items": {
@@ -84,12 +88,50 @@
                     "sourceFilename": {
                         "type": "boolean",
                         "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
+                    },
+                    "allowedValues": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": ["string", "number", "boolean"]
+                        },
+                        "description": "Inline closed set of allowed values used only by synthetic-data generation ('synth'): one value is picked per row. Use 'codeSet' for a reusable/shared list. Mutually exclusive with 'codeSet'."
+                    },
+                    "codeSet": {
+                        "description": "Reference to a named code set used only by synthetic-data generation ('synth'). A string names a flat code set (a value picked per row); an object binds this dimension to a field of a structured code set so correlated columns line up. Mutually exclusive with 'allowedValues'.",
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            {
+                                "type": "object",
+                                "required": ["name", "field"],
+                                "additionalProperties": false,
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Name of a structured (records) code set."
+                                    },
+                                    "field": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "description": "Field of the picked record to emit for this dimension."
+                                    }
+                                }
+                            }
+                        ]
                     }
                 },
                 "required": [
                     "name",
                     "type"
                 ],
+                "not": {
+                    "required": ["allowedValues", "codeSet"],
+                    "properties": { "allowedValues": {}, "codeSet": {} }
+                },
                 "additionalProperties": false
             },
             "minItems": 1

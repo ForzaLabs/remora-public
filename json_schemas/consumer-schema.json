@@ -83,6 +83,10 @@
                         "type": "string",
                         "description": "The dimension/measure of the producer OR '*'. If '*' then return all dimensions"
                     },
+                    "description": {
+                        "type": "string",
+                        "description": "Optional human-readable description of this field. Descriptive metadata only; it documents intent and does not change runtime behaviour."
+                    },
                     "alias": {
                         "type": "string",
                         "description": "If set, changes the key returned by the consumer to this alias"

@@ -54,6 +54,14 @@
             },
             "description": "Array of schema paths"
         },
+        "codeSets": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^/"
+            },
+            "description": "Optional array of code-set paths used to drive synthetic-data generation"
+        },
         "settings": {
             "type": "object",
             "required": ["SQL_MAX_QUERY_ROWS"],
