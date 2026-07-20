@@ -122,16 +122,35 @@
                                 }
                             }
                         ]
+                    },
+                    "references": {
+                        "type": "object",
+                        "description": "Declares this dimension as a foreign key referencing another producer's field, used only by synthetic-data generation ('synth'). Generated values are drawn from the referenced parent field's key domain so joins/unions line up. Single-column relationships only. Mutually exclusive with 'allowedValues' and 'codeSet'.",
+                        "required": ["producer", "field"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "producer": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Name of the parent producer whose field this dimension references."
+                            },
+                            "field": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Name of the parent producer's dimension whose key values are drawn from."
+                            }
+                        }
                     }
                 },
                 "required": [
                     "name",
                     "type"
                 ],
-                "not": {
-                    "required": ["allowedValues", "codeSet"],
-                    "properties": { "allowedValues": {}, "codeSet": {} }
-                },
+                "allOf": [
+                    { "not": { "required": ["allowedValues", "codeSet"], "properties": { "allowedValues": {}, "codeSet": {} } } },
+                    { "not": { "required": ["allowedValues", "references"], "properties": { "allowedValues": {}, "references": {} } } },
+                    { "not": { "required": ["codeSet", "references"], "properties": { "codeSet": {}, "references": {} } } }
+                ],
                 "additionalProperties": false
             },
             "minItems": 1
