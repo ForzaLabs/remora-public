@@ -48,6 +48,11 @@
                         "type": "string",
                         "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
                     },
+                    "decimals": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "How many decimal places generated number values should have. Used only by synthetic-data generation ('synth'): 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
+                    },
                     "alias": {
                         "type": "string",
                         "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
