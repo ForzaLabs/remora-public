@@ -48,11 +48,6 @@
                         "type": "string",
                         "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
                     },
-                    "decimals": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "description": "How many decimal places generated number values should have. Used only by synthetic-data generation ('synth'): 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
-                    },
                     "alias": {
                         "type": "string",
                         "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
@@ -94,67 +89,95 @@
                         "type": "boolean",
                         "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
                     },
-                    "allowedValues": {
-                        "type": "array",
-                        "minItems": 1,
-                        "items": {
-                            "type": ["string", "number", "boolean"]
-                        },
-                        "description": "Inline closed set of allowed values used only by synthetic-data generation ('synth'): one value is picked per row. Use 'codeSet' for a reusable/shared list. Mutually exclusive with 'codeSet'."
-                    },
-                    "codeSet": {
-                        "description": "Reference to a named code set used only by synthetic-data generation ('synth'). A string names a flat code set (a value picked per row); an object binds this dimension to a field of a structured code set so correlated columns line up. Mutually exclusive with 'allowedValues'.",
-                        "oneOf": [
-                            {
-                                "type": "string",
-                                "minLength": 1
+                    "synth": {
+                        "type": "object",
+                        "description": "Synthetic-data configuration for this dimension, used only by the 'synth' command. Nothing in here affects a real producer read. 'allowedValues', 'codeSet' and 'references' are mutually exclusive ways to declare where a value comes from.",
+                        "additionalProperties": false,
+                        "properties": {
+                            "decimals": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "How many decimal places generated number values should have: 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
                             },
-                            {
+                            "allowedValues": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": ["string", "number", "boolean"]
+                                },
+                                "description": "Inline closed set of allowed values: one value is picked per row. Use 'codeSet' for a reusable/shared list. Mutually exclusive with 'codeSet'."
+                            },
+                            "codeSet": {
+                                "description": "Reference to a named code set. A string names a flat code set (a value picked per row); an object binds this dimension to a field of a structured code set so correlated columns line up. Mutually exclusive with 'allowedValues'.",
+                                "oneOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": ["name", "field"],
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "description": "Name of a structured (records) code set."
+                                            },
+                                            "field": {
+                                                "type": "string",
+                                                "minLength": 1,
+                                                "description": "Field of the picked record to emit for this dimension."
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            "references": {
                                 "type": "object",
-                                "required": ["name", "field"],
+                                "description": "Declares this dimension as a foreign key referencing another producer's field. Generated values are drawn from the referenced parent field's key domain so joins/unions line up. Single-column relationships only. Mutually exclusive with 'allowedValues' and 'codeSet'.",
+                                "required": ["producer", "field"],
                                 "additionalProperties": false,
                                 "properties": {
-                                    "name": {
+                                    "producer": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Name of a structured (records) code set."
+                                        "description": "Name of the parent producer whose field this dimension references."
                                     },
                                     "field": {
                                         "type": "string",
                                         "minLength": 1,
-                                        "description": "Field of the picked record to emit for this dimension."
+                                        "description": "Name of the parent producer's dimension whose key values are drawn from."
                                     }
                                 }
                             }
+                        },
+                        "allOf": [
+                            { "not": { "required": ["allowedValues", "codeSet"], "properties": { "allowedValues": {}, "codeSet": {} } } },
+                            { "not": { "required": ["allowedValues", "references"], "properties": { "allowedValues": {}, "references": {} } } },
+                            { "not": { "required": ["codeSet", "references"], "properties": { "codeSet": {}, "references": {} } } }
                         ]
                     },
+                    "decimals": {
+                        "not": {},
+                        "description": "MOVED: use \"synth\": { \"decimals\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                    },
+                    "allowedValues": {
+                        "not": {},
+                        "description": "MOVED: use \"synth\": { \"allowedValues\": [...] } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                    },
+                    "codeSet": {
+                        "not": {},
+                        "description": "MOVED: use \"synth\": { \"codeSet\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                    },
                     "references": {
-                        "type": "object",
-                        "description": "Declares this dimension as a foreign key referencing another producer's field, used only by synthetic-data generation ('synth'). Generated values are drawn from the referenced parent field's key domain so joins/unions line up. Single-column relationships only. Mutually exclusive with 'allowedValues' and 'codeSet'.",
-                        "required": ["producer", "field"],
-                        "additionalProperties": false,
-                        "properties": {
-                            "producer": {
-                                "type": "string",
-                                "minLength": 1,
-                                "description": "Name of the parent producer whose field this dimension references."
-                            },
-                            "field": {
-                                "type": "string",
-                                "minLength": 1,
-                                "description": "Name of the parent producer's dimension whose key values are drawn from."
-                            }
-                        }
+                        "not": {},
+                        "description": "MOVED: use \"synth\": { \"references\": { \"producer\", \"field\" } } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
                     }
                 },
                 "required": [
                     "name",
                     "type"
-                ],
-                "allOf": [
-                    { "not": { "required": ["allowedValues", "codeSet"], "properties": { "allowedValues": {}, "codeSet": {} } } },
-                    { "not": { "required": ["allowedValues", "references"], "properties": { "allowedValues": {}, "references": {} } } },
-                    { "not": { "required": ["codeSet", "references"], "properties": { "codeSet": {}, "references": {} } } }
                 ],
                 "additionalProperties": false
             },
