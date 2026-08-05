@@ -89,6 +89,29 @@
                         "type": "boolean",
                         "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
                     },
+                    "position": {
+                        "type": "object",
+                        "description": "Where this dimension's value sits inside the line, for FIXED (fixed-width) files. Required on every dimension of a FIXED producer and only valid there: a fixed-width file has no header and no delimiter, so the position IS the mapping. Coordinates are 1-based and inclusive, like a file layout spec ('columns 21-30').",
+                        "additionalProperties": false,
+                        "required": ["start"],
+                        "properties": {
+                            "start": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "1-based position of the field's first character in the line."
+                            },
+                            "length": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "How many characters the field spans. Mutually exclusive with 'end'."
+                            },
+                            "end": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "1-based position of the field's last character, inclusive. Mutually exclusive with 'length'."
+                            }
+                        }
+                    },
                     "synth": {
                         "type": "object",
                         "description": "Synthetic-data configuration for this dimension, used only by the 'synth' command. Nothing in here affects a real producer read. 'allowedValues', 'codeSet' and 'references' are mutually exclusive ways to declare where a value comes from.",
@@ -98,6 +121,14 @@
                                 "type": "integer",
                                 "minimum": 0,
                                 "description": "How many decimal places generated number values should have: 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
+                            },
+                            "min": {
+                                "type": ["number", "string"],
+                                "description": "Inclusive lower bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise). Only for 'number' and 'datetime' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
+                            },
+                            "max": {
+                                "type": ["number", "string"],
+                                "description": "Inclusive upper bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise). Only for 'number' and 'datetime' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
                             },
                             "allowedValues": {
                                 "type": "array",
@@ -239,13 +270,52 @@
                         "XLS",
                         "XLSX",
                         "XML",
-                        "PARQUET"
+                        "PARQUET",
+                        "FIXED"
                     ],
-                    "description": "The type of file to read."
+                    "description": "The type of file to read. FIXED is a fixed-width (positional) flat file: no delimiter and no header, every dimension declares its 'position' in the line."
                 },
                 "delimiter": {
                     "type": "string",
                     "description": "The column delimiter for CSV or TXT files if different from the default (,)."
+                },
+                "recordSelector": {
+                    "type": "object",
+                    "description": "For FIXED files that interleave record types (e.g. H header / D detail / T trailer): reads only the lines whose marker at the given position matches, so this producer describes exactly one record layout. If omitted, every line is read.",
+                    "additionalProperties": false,
+                    "required": ["position", "equals"],
+                    "properties": {
+                        "position": {
+                            "type": "object",
+                            "description": "Where the record-type marker sits in the line. Same 1-based, inclusive coordinates as a dimension position.",
+                            "additionalProperties": false,
+                            "required": ["start"],
+                            "properties": {
+                                "start": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "1-based position of the marker's first character in the line."
+                                },
+                                "length": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "How many characters the marker spans. Mutually exclusive with 'end'."
+                                },
+                                "end": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "1-based position of the marker's last character, inclusive. Mutually exclusive with 'length'."
+                                }
+                            }
+                        },
+                        "equals": {
+                            "description": "The marker value(s) to keep, compared case-sensitively against the trimmed marker.",
+                            "oneOf": [
+                                { "type": "string", "minLength": 1 },
+                                { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+                            ]
+                        }
+                    }
                 },
                 "disableHistory": {
                     "type": "boolean",
@@ -253,7 +323,7 @@
                 },
                 "hasHeaderRow": {
                     "type": "boolean",
-                    "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true."
+                    "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true. For FIXED files it defaults to false — set it to true only if the fixed-width file starts with a descriptive line that must be skipped."
                 },
                 "sheetName": {
                     "type": "string",
