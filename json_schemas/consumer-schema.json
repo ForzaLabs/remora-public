@@ -327,6 +327,10 @@
                         "type": "string",
                         "description": "Only used when the format is 'TXT'. The single-character delimiter used between fields in the exported file. Defaults to a tab if not set."
                     },
+                    "header": {
+                        "type": "boolean",
+                        "description": "'CSV'/'TXT' only. Writes the field names as the first line of each exported file, quoted and delimited exactly as the rows under them. Defaults to true; set it to false for a destination that reads the first line as data."
+                    },
                     "omitNull": {
                         "type": "boolean",
                         "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
