@@ -3,7 +3,7 @@
     "title": "Project Schema",
     "description": "Schema for defining remora project configuration",
     "type": "object",
-    "required": ["name", "version", "consumers", "producers", "sources", "schemas", "settings"],
+    "required": ["name", "version", "settings"],
     "properties": {
         "$schema": {
             "type": "string",
@@ -28,7 +28,8 @@
                 "type": "string",
                 "pattern": "^/"
             },
-            "description": "Array of consumer paths"
+            "deprecated": true,
+            "description": "DEPRECATED and ignored. Resource folders are fixed: /sources, /producers, /consumers, /schemas and /code_sets. Remove this property"
         },
         "producers": {
             "type": "array",
@@ -36,7 +37,8 @@
                 "type": "string",
                 "pattern": "^/"
             },
-            "description": "Array of producer paths"
+            "deprecated": true,
+            "description": "DEPRECATED and ignored. Resource folders are fixed: /sources, /producers, /consumers, /schemas and /code_sets. Remove this property"
         },
         "sources": {
             "type": "array",
@@ -44,7 +46,8 @@
                 "type": "string",
                 "pattern": "^/"
             },
-            "description": "Array of source paths"
+            "deprecated": true,
+            "description": "DEPRECATED and ignored. Resource folders are fixed: /sources, /producers, /consumers, /schemas and /code_sets. Remove this property"
         },
         "schemas": {
             "type": "array",
@@ -52,7 +55,8 @@
                 "type": "string",
                 "pattern": "^/"
             },
-            "description": "Array of schema paths"
+            "deprecated": true,
+            "description": "DEPRECATED and ignored. Resource folders are fixed: /sources, /producers, /consumers, /schemas and /code_sets. Remove this property"
         },
         "codeSets": {
             "type": "array",
@@ -60,7 +64,8 @@
                 "type": "string",
                 "pattern": "^/"
             },
-            "description": "Optional array of code-set paths used to drive synthetic-data generation"
+            "deprecated": true,
+            "description": "DEPRECATED and ignored. Resource folders are fixed: /sources, /producers, /consumers, /schemas and /code_sets. Remove this property"
         },
         "settings": {
             "type": "object",
@@ -80,6 +85,11 @@
                             "type": "string",
                             "minLength": 1,
                             "description": "Name of an aws-sqs source used as an alternative execute-consumer API"
+                        },
+                        "deadLetterQueue": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Dead-letter queue URL, or queue name resolved against the API queue's region and accountId. A command that failed is moved here instead of being deleted, so it can be inspected and replayed. A command always leaves the queue once it has run, successfully or not, so there is no delivery count to bound here"
                         }
                     }
                 },
@@ -103,10 +113,6 @@
             "name": "analytics-project",
             "version": "1.0.0",
             "description": "Analytics data processing project",
-            "consumers": ["/consumers"],
-            "producers": ["/producers"],
-            "sources": ["/sources"],
-            "schemas": ["/schemas"],
             "settings": {
                 "SQL_MAX_QUERY_ROWS": 10000,
                 "API_QUEUE": {

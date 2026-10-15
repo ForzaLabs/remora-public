@@ -81,7 +81,7 @@
                 "properties": {
                     "key": {
                         "type": "string",
-                        "description": "The dimension/measure of the producer OR '*'. If '*' then return all dimensions"
+                        "description": "The dimension/measure of the producer, OR '*' for every dimension of one producer, OR a pattern holding a '*' (e.g. 'addr*Street') that selects every matching field — each keeping the rest of this field's configuration, so one entry can transform or validate a whole family of columns."
                     },
                     "description": {
                         "type": "string",
@@ -89,7 +89,7 @@
                     },
                     "alias": {
                         "type": "string",
-                        "description": "If set, changes the key returned by the consumer to this alias"
+                        "description": "If set, changes the key returned by the consumer to this alias. When the key is a pattern the alias is a template, and must vary per match: '*' is replaced by what the pattern captured (positionally) and '{key}' by the matched field name, e.g. key 'addr*Street' with alias 'street_*' gives street_0, street_1."
                     },
                     "from": {
                         "type": "string",
@@ -327,6 +327,10 @@
                         "type": "string",
                         "description": "Only used when the format is 'TXT'. The single-character delimiter used between fields in the exported file. Defaults to a tab if not set."
                     },
+                    "omitNull": {
+                        "type": "boolean",
+                        "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
+                    },
                     "trigger": {
                         "type": "object",
                         "description": "Triggers to perform the export (not just the usual 'Deploy')",
@@ -393,6 +397,15 @@
                                     "externalId": {
                                         "type": "string",
                                         "description": "Optional STS ExternalId for third-party / cross-account trust when method is 'arn' (for QUEUE triggers)."
+                                    },
+                                    "deadLetterQueue": {
+                                        "type": "string",
+                                        "description": "Dead-letter queue URL or name (for QUEUE triggers). A message that has failed 'maxReceiveCount' deliveries is moved here and deleted from this queue. Omit it and the exhausted message is skipped instead, staying in the queue until it expires."
+                                    },
+                                    "maxReceiveCount": {
+                                        "type": "string",
+                                        "pattern": "^[1-9][0-9]*$",
+                                        "description": "How many failed deliveries are tolerated before the message stops being processed (for QUEUE triggers). Applies with or without a 'deadLetterQueue'. Defaults to '5'."
                                     }
                                 },
                                 "additionalProperties": {
@@ -434,13 +447,9 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "sql": {
-                        "type": "string",
-                        "description": "The SQL to use to filter on the included dimension"
-                    },
                     "rule": {
                         "type": "object",
-                        "description": "Non-SQL based filtering logic",
+                        "description": "The filtering logic applied per record to the consumer result set",
                         "properties": {
                             "member": {
                                 "type": "string",
@@ -468,8 +477,7 @@
                                     "true",
                                     "false",
                                     "matches",
-                                    "notMatches",
-                                    "sql"
+                                    "notMatches"
                                 ],
                                 "description": "The filter operator to apply"
                             },
@@ -489,6 +497,9 @@
                         "additionalProperties": false
                     }
                 },
+                "required": [
+                    "rule"
+                ],
                 "additionalProperties": false
             }
         },
@@ -623,7 +634,25 @@
         },
         "maximumFileSize": {
             "type": "number",
-            "description": "The maximum size of each output file, expressed in Gb. When the current output file exceeds this size it is rotated and a new file is started."
+            "description": "Shorthand for split.maxFileSizeGb: the maximum size of each output file, expressed in Gb. When the current output file reaches this size it is rotated and a new numbered file is started. Can't be combined with 'split'."
+        },
+        "split": {
+            "type": "object",
+            "description": "Splits the output into several files: by the value of one or more fields, by a size cap, or both (key first, then size within each key). At least one of the two properties must be set.",
+            "properties": {
+                "by": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Consumer field key(s) — the alias where one is set. Each distinct combination of values is written to its own file, named after the value(s). A null value buckets as '_null' and an empty one as '_empty'."
+                },
+                "maxFileSizeGb": {
+                    "type": "number",
+                    "description": "The maximum size of ONE output file, expressed in Gb. With 'by' set the cap applies per key, not across the whole output."
+                }
+            },
+            "additionalProperties": false
         },
         "_version": {
             "type": "number",

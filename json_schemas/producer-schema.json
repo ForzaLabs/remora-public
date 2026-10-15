@@ -23,195 +23,7 @@
         "dimensions": {
             "type": "array",
             "description": "Dimensions for the producer",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the dimension. This is the output name of this dimension."
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Optional description of the dimension"
-                    },
-                    "type": {
-                        "type": "string",
-                        "enum": [
-                            "string",
-                            "number",
-                            "datetime",
-                            "boolean"
-                        ],
-                        "description": "The data type of the dimension"
-                    },
-                    "format": {
-                        "type": "string",
-                        "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
-                    },
-                    "alias": {
-                        "type": "string",
-                        "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
-                    },
-                    "pk": {
-                        "type": "boolean",
-                        "description": "Whether this is a primary key column or not"
-                    },
-                    "nullable": {
-                        "type": "boolean",
-                        "description": "Declares whether this dimension is allowed to hold null/missing values. Descriptive metadata only: it documents intent for consumers, schema generation and AI mappers, and does not change runtime behaviour (nulls are already passed through untouched). Use a consumer field 'required' validation to enforce presence."
-                    },
-                    "classification": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "PHI",
-                                "PII",
-                                "GDPR"
-                            ],
-                            "description": "Classification categories for this dimension"
-                        }
-                    },
-                    "mask": {
-                        "type": "string",
-                        "description": "Masking type to apply to this dimension. Predefined values: 'hash' (replaces with a hashed value), 'mask' (replaces characters with a mask character), 'crypt' (encrypts the value), 'random' (replaces with a random value), 'seeded-random' (replaces with a random value generated from a seed), 'none' (no masking). You can also use environment variables by using the {your-env-var} notation or any custom string value.",
-                        "examples": [
-                            "hash",
-                            "mask",
-                            "crypt",
-                            "random",
-                            "seeded-random",
-                            "none",
-                            "{REMORA_MASK_IN_DEV}"
-                        ]
-                    },
-                    "sourceFilename": {
-                        "type": "boolean",
-                        "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
-                    },
-                    "position": {
-                        "type": "object",
-                        "description": "Where this dimension's value sits inside the line, for FIXED (fixed-width) files. Required on every dimension of a FIXED producer and only valid there: a fixed-width file has no header and no delimiter, so the position IS the mapping. Coordinates are 1-based and inclusive, like a file layout spec ('columns 21-30').",
-                        "additionalProperties": false,
-                        "required": ["start"],
-                        "properties": {
-                            "start": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "1-based position of the field's first character in the line."
-                            },
-                            "length": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "How many characters the field spans. Mutually exclusive with 'end'."
-                            },
-                            "end": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "description": "1-based position of the field's last character, inclusive. Mutually exclusive with 'length'."
-                            }
-                        }
-                    },
-                    "synth": {
-                        "type": "object",
-                        "description": "Synthetic-data configuration for this dimension, used only by the 'synth' command. Nothing in here affects a real producer read. 'allowedValues', 'codeSet' and 'references' are mutually exclusive ways to declare where a value comes from.",
-                        "additionalProperties": false,
-                        "properties": {
-                            "decimals": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "description": "How many decimal places generated number values should have: 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
-                            },
-                            "min": {
-                                "type": ["number", "string"],
-                                "description": "Inclusive lower bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise). Only for 'number' and 'datetime' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
-                            },
-                            "max": {
-                                "type": ["number", "string"],
-                                "description": "Inclusive upper bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise). Only for 'number' and 'datetime' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
-                            },
-                            "allowedValues": {
-                                "type": "array",
-                                "minItems": 1,
-                                "items": {
-                                    "type": ["string", "number", "boolean"]
-                                },
-                                "description": "Inline closed set of allowed values: one value is picked per row. Use 'codeSet' for a reusable/shared list. Mutually exclusive with 'codeSet'."
-                            },
-                            "codeSet": {
-                                "description": "Reference to a named code set. A string names a flat code set (a value picked per row); an object binds this dimension to a field of a structured code set so correlated columns line up. Mutually exclusive with 'allowedValues'.",
-                                "oneOf": [
-                                    {
-                                        "type": "string",
-                                        "minLength": 1
-                                    },
-                                    {
-                                        "type": "object",
-                                        "required": ["name", "field"],
-                                        "additionalProperties": false,
-                                        "properties": {
-                                            "name": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "description": "Name of a structured (records) code set."
-                                            },
-                                            "field": {
-                                                "type": "string",
-                                                "minLength": 1,
-                                                "description": "Field of the picked record to emit for this dimension."
-                                            }
-                                        }
-                                    }
-                                ]
-                            },
-                            "references": {
-                                "type": "object",
-                                "description": "Declares this dimension as a foreign key referencing another producer's field. Generated values are drawn from the referenced parent field's key domain so joins/unions line up. Single-column relationships only. Mutually exclusive with 'allowedValues' and 'codeSet'.",
-                                "required": ["producer", "field"],
-                                "additionalProperties": false,
-                                "properties": {
-                                    "producer": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "description": "Name of the parent producer whose field this dimension references."
-                                    },
-                                    "field": {
-                                        "type": "string",
-                                        "minLength": 1,
-                                        "description": "Name of the parent producer's dimension whose key values are drawn from."
-                                    }
-                                }
-                            }
-                        },
-                        "allOf": [
-                            { "not": { "required": ["allowedValues", "codeSet"], "properties": { "allowedValues": {}, "codeSet": {} } } },
-                            { "not": { "required": ["allowedValues", "references"], "properties": { "allowedValues": {}, "references": {} } } },
-                            { "not": { "required": ["codeSet", "references"], "properties": { "codeSet": {}, "references": {} } } }
-                        ]
-                    },
-                    "decimals": {
-                        "not": {},
-                        "description": "MOVED: use \"synth\": { \"decimals\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
-                    },
-                    "allowedValues": {
-                        "not": {},
-                        "description": "MOVED: use \"synth\": { \"allowedValues\": [...] } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
-                    },
-                    "codeSet": {
-                        "not": {},
-                        "description": "MOVED: use \"synth\": { \"codeSet\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
-                    },
-                    "references": {
-                        "not": {},
-                        "description": "MOVED: use \"synth\": { \"references\": { \"producer\", \"field\" } } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
-                    }
-                },
-                "required": [
-                    "name",
-                    "type"
-                ],
-                "additionalProperties": false
-            },
+            "items": { "$ref": "#/definitions/dimension" },
             "minItems": 1
         },
         "measures": {
@@ -246,15 +58,11 @@
             "properties": {
                 "sqlTable": {
                     "type": "string",
-                    "description": "The SQL table name, which is a concise way of setting the sql property to 'SELECT * FROM <sql table name>'"
+                    "description": "The table a SQL producer reads, as 'table' or 'schema.table'. The statement is built from it and the producer's dimensions"
                 },
                 "direct": {
                     "type": "boolean",
                     "description": "If true, no view is created on the producer side due to permission limitations"
-                },
-                "sql": {
-                    "type": "string",
-                    "description": "The name of the file that has the SQL statement to run to create this producer"
                 },
                 "fileKey": {
                     "type": "string",
@@ -286,27 +94,8 @@
                     "required": ["position", "equals"],
                     "properties": {
                         "position": {
-                            "type": "object",
-                            "description": "Where the record-type marker sits in the line. Same 1-based, inclusive coordinates as a dimension position.",
-                            "additionalProperties": false,
-                            "required": ["start"],
-                            "properties": {
-                                "start": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "description": "1-based position of the marker's first character in the line."
-                                },
-                                "length": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "description": "How many characters the marker spans. Mutually exclusive with 'end'."
-                                },
-                                "end": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "description": "1-based position of the marker's last character, inclusive. Mutually exclusive with 'length'."
-                                }
-                            }
+                            "allOf": [{ "$ref": "#/definitions/position" }],
+                            "description": "Where the record-type marker sits in the line. Same 1-based, inclusive coordinates as a dimension position."
                         },
                         "equals": {
                             "description": "The marker value(s) to keep, compared case-sensitively against the trimmed marker.",
@@ -314,12 +103,26 @@
                                 { "type": "string", "minLength": 1 },
                                 { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
                             ]
+                        },
+                        "minLength": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Shortest line this record layout can validly be, in characters. A matching marker says nothing about whether the rest of the line is there, so a truncated record would otherwise parse into garbage — its fields past the truncation reading as null instead of failing. Checked only on lines the marker already matched, so a short header or trailer is unaffected."
+                        },
+                        "onLengthMismatch": {
+                            "type": "string",
+                            "enum": ["skip", "fail"],
+                            "description": "What to do with a matching line shorter than 'minLength': 'skip' it, logging at debug level (default), or 'fail' the run."
                         }
                     }
                 },
                 "disableHistory": {
                     "type": "boolean",
                     "description": "For Delta Share producers, skips sending the current table version in the query request body."
+                },
+                "disablePushdown": {
+                    "type": "boolean",
+                    "description": "Stops the run's filters and record limit from being sent to the source — as query hints on a Delta Share, as a WHERE and a LIMIT on a SQL source. Both are still applied here, so this only costs bandwidth."
                 },
                 "hasHeaderRow": {
                     "type": "boolean",
@@ -363,6 +166,312 @@
         "_version": {
             "type": "number",
             "description": "Version number of the producer configuration"
+        }
+    },
+    "definitions": {
+        "position": {
+            "type": "object",
+            "description": "A character range inside a fixed-width line. Coordinates are 1-based and inclusive, like a file layout spec ('columns 21-30'). Give the width as either 'length' or 'end', never both. Give the start as either an absolute 'start' or an 'after' anchor.",
+            "additionalProperties": false,
+            "properties": {
+                "start": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "1-based position of the field's first character in the line — or, with 'after', inside the anchored region, where it defaults to 1. Required unless 'after' is set."
+                },
+                "length": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "How many characters the field spans. Mutually exclusive with 'end'."
+                },
+                "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "1-based position of the field's last character, inclusive. Mutually exclusive with 'length'."
+                },
+                "after": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Anchors this position to the end of the named group's ACTUAL occurrences on the line instead of to the start of the line, so it follows a group whose 'occurs' varies. Must name an EARLIER group dimension of the same producer. 'start' becomes an offset inside that region, default 1 (immediately after)."
+                }
+            }
+        },
+        "occursWhile": {
+            "type": "object",
+            "description": "Marker test that ends a variable group: occurrences are taken while the marker matches, and the first occurrence that fails it ends the block.",
+            "additionalProperties": false,
+            "required": ["position", "equals"],
+            "properties": {
+                "position": {
+                    "allOf": [{ "$ref": "#/definitions/position" }],
+                    "description": "Where the marker sits INSIDE one occurrence — relative, like a group child's position."
+                },
+                "equals": {
+                    "oneOf": [
+                        { "type": "string" },
+                        { "type": "array", "minItems": 1, "items": { "type": "string" } }
+                    ],
+                    "description": "The marker value(s) that mean 'this occurrence exists'. Compared against the trimmed marker."
+                }
+            }
+        },
+        "dimension": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the dimension. This is the output name of this dimension."
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional description of the dimension"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "string",
+                        "number",
+                        "datetime",
+                        "boolean"
+                    ],
+                    "description": "The data type of the dimension"
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
+                },
+                "alias": {
+                    "type": "string",
+                    "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
+                },
+                "pk": {
+                    "type": "boolean",
+                    "description": "Whether this is a primary key column or not"
+                },
+                "nullable": {
+                    "type": "boolean",
+                    "description": "Declares whether this dimension is allowed to hold null/missing values. Defaults to true. A missing value (null, or the empty field a NULL is staged as) is kept as null; set this to false to get the type's own empty value instead (string -> \"\", number -> 0, boolean -> false; a datetime stays null, having no empty value). Use a consumer field 'required' validation to reject a missing value rather than fill it."
+                },
+                "classification": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "PHI",
+                            "PII",
+                            "GDPR"
+                        ],
+                        "description": "Classification categories for this dimension"
+                    }
+                },
+                "mask": {
+                    "type": "string",
+                    "description": "Masking type to apply to this dimension. Predefined values: 'hash' (replaces with a hashed value), 'mask' (replaces characters with a mask character), 'crypt' (encrypts the value), 'random' (replaces with a random value), 'seeded-random' (replaces with a random value generated from a seed), 'none' (no masking). You can also use environment variables by using the {your-env-var} notation or any custom string value.",
+                    "examples": [
+                        "hash",
+                        "mask",
+                        "crypt",
+                        "random",
+                        "seeded-random",
+                        "none",
+                        "{REMORA_MASK_IN_DEV}"
+                    ]
+                },
+                "sourceFilename": {
+                    "type": "boolean",
+                    "description": "When true, this dimension will be populated with the source filename. Only valid for file-based producers (local, aws-s3) and only one dimension per producer can have this set to true. Useful when reading multiple files with wildcard patterns to track which file each row came from."
+                },
+                "position": {
+                    "allOf": [{ "$ref": "#/definitions/position" }],
+                    "description": "Where this dimension's value sits inside the line, for FIXED (fixed-width) files. Required on every dimension of a FIXED producer and only valid there: a fixed-width file has no header and no delimiter, so the position IS the mapping. Coordinates are 1-based and inclusive, like a file layout spec ('columns 21-30'). On a group dimension (one declaring nested 'dimensions') this is the extent of ONE occurrence, so 'length' is the bytes per occurrence."
+                },
+                "dimensions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "$ref": "#/definitions/dimension" },
+                    "description": "Makes this a repeating GROUP of fields (a COBOL OCCURS segment): the fields that repeat, each 'position' RELATIVE to one occurrence. The group's own 'position' is the extent of ONE occurrence, so its 'length' is the bytes per occurrence, not the whole group's span. Expanded into one dimension per (occurrence x child) when the config loads, so nothing downstream sees a group. A group declares no 'type' and produces no column of its own. FIXED producers only; nested groups are not supported yet."
+                },
+                "occurs": {
+                    "description": "How many times a group's fields repeat. An integer when every line has the same count — default 1, so a group is also usable purely to structure a non-repeating segment. An object when the count VARIES line by line: the group still generates 'max' columns (a line with fewer reads them as null), and everything after it must be anchored with 'position.after' because the group's span differs per line.",
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["max"],
+                            "properties": {
+                                "max": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 1000,
+                                    "description": "Hard upper bound on the occurrences, and the number of columns the group generates. Mandatory: the output column set has to stay statically knowable and a per-line scan needs a limit."
+                                },
+                                "min": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "description": "Occurrences always present, whatever the count rule reports. Default 0."
+                                },
+                                "while": {
+                                    "allOf": [{ "$ref": "#/definitions/occursWhile" }],
+                                    "description": "Keep taking occurrences while this marker matches inside the occurrence. Mutually exclusive with 'from'."
+                                },
+                                "from": {
+                                    "type": "string",
+                                    "minLength": 2,
+                                    "pattern": "^\\$",
+                                    "description": "Reference to an earlier dimension of this producer holding the count, e.g. '$slotCount'. Its value is read per line, floored at 'min' and capped at 'max'. Mutually exclusive with 'while'.",
+                                    "examples": ["$slotCount"]
+                                }
+                            }
+                        }
+                    ]
+                },
+                "indexFrom": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "description": "First index used in the dimension names a group generates. Default 0."
+                },
+                "emit": {
+                    "type": "string",
+                    "enum": ["columns", "rows"],
+                    "description": "What a group's occurrences become. 'columns' (default) generates one dimension per (occurrence x child), so one line stays one record. 'rows' fans the line out to one record PER OCCURRENCE: the children keep their own names, every dimension outside the group repeats on each record, and a generated field carries the occurrence index. At most one group per producer may declare it."
+                },
+                "skipEmptyOccurrences": {
+                    "type": "boolean",
+                    "description": "On an 'emit': 'rows' group: drop the occurrences whose fields are all empty instead of emitting a record of nulls for each. Default true."
+                },
+                "occurrenceField": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "On an 'emit': 'rows' group: the name of the generated field holding the occurrence index. Default '{group}Occurrence'.",
+                    "examples": ["addr_occurrence"]
+                },
+                "naming": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Template for the dimension names generated by a group or by 'flags'. On a group the tokens are {group}, {index}, {field} and {Field} (capitalized), and {index} is required unless 'occurs' is 1; default '{group}{index}{Field}'. On a 'flags' dimension they are {field}, {Field}, {flag} and {Flag}, one flag token required; default '{field}{Flag}'.",
+                    "examples": ["{group}{index}{Field}", "{group}_{index}_{field}", "{field}_{flag}"]
+                },
+                "flags": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": { "type": "string", "minLength": 1 },
+                    "description": "Decodes a per-character bitmap into one dimension per character: this dimension fans out to flags.length 1-character dimensions, the first at position.start, named after each flag. 'flags' must have exactly one entry per character the dimension spans. Each character is SLICED, never interpreted, so a non-binary character survives as itself. FIXED producers only, on a 'string' dimension.",
+                    "examples": [["mailing", "billing", "physical"]]
+                },
+                "synth": {
+                    "type": "object",
+                    "description": "Synthetic-data configuration for this dimension, used only by the 'synth' command. Nothing in here affects a real producer read. 'allowedValues', 'codeSet' and 'references' are mutually exclusive ways to declare where a value comes from.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "decimals": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "How many decimal places generated number values should have: 0 forces whole integers (so values load into an integer column); a positive value rounds to that many decimals. Omit to keep the generator's own value."
+                        },
+                        "unique": {
+                            "type": "boolean",
+                            "description": "Emit a distinct value in every row, for a column that carries a uniqueness constraint without being the primary key (a natural key, an external reference, an account number). A name-based generator cannot promise uniqueness, so a unique column is served from the coordinated key pool the way a primary key is ('external_ref_1', 'external_ref_2', ...), with 'min'/'max' sizing it as they do for any key. Only for 'string' and 'number' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
+                        },
+                        "min": {
+                            "type": ["number", "string"],
+                            "description": "Inclusive lower bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise); a whole number of characters for a 'string' dimension, where it is the minimum length and a shorter generated value is filled out with letters. On a key/ID column the pool of values is generated AT the declared width instead of being clamped to it, so every key stays distinct. Not for 'boolean' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
+                        },
+                        "max": {
+                            "type": ["number", "string"],
+                            "description": "Inclusive upper bound for generated values, so the column stays inside its real-world range. A number for a 'number' dimension; a date string for a 'datetime' dimension (read with the dimension's own 'format' when it has one, ISO otherwise); a whole number of characters for a 'string' dimension, where it is the maximum length and a longer generated value is cut to it. On a key/ID column the pool of values is generated AT the declared width instead of being clamped to it, so every key stays distinct. Not for 'boolean' dimensions, and mutually exclusive with 'allowedValues', 'codeSet' and 'references'."
+                        },
+                        "allowedValues": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": ["string", "number", "boolean"]
+                            },
+                            "description": "Inline closed set of allowed values: one value is picked per row. Use 'codeSet' for a reusable/shared list. Mutually exclusive with 'codeSet'."
+                        },
+                        "codeSet": {
+                            "description": "Reference to a named code set. A string names a flat code set (a value picked per row); an object binds this dimension to a field of a structured code set so correlated columns line up. Mutually exclusive with 'allowedValues'.",
+                            "oneOf": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                {
+                                    "type": "object",
+                                    "required": ["name", "field"],
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Name of a structured (records) code set."
+                                        },
+                                        "field": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Field of the picked record to emit for this dimension."
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        "references": {
+                            "type": "object",
+                            "description": "Declares this dimension as a foreign key referencing another producer's field. Generated values are drawn from the referenced parent field's key domain so joins/unions line up. Single-column relationships only. Mutually exclusive with 'allowedValues' and 'codeSet'.",
+                            "required": ["producer", "field"],
+                            "additionalProperties": false,
+                            "properties": {
+                                "producer": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Name of the parent producer whose field this dimension references."
+                                },
+                                "field": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "description": "Name of the parent producer's dimension whose key values are drawn from."
+                                }
+                            }
+                        }
+                    },
+                    "allOf": [
+                        { "not": { "required": ["allowedValues", "codeSet"], "properties": { "allowedValues": {}, "codeSet": {} } } },
+                        { "not": { "required": ["allowedValues", "references"], "properties": { "allowedValues": {}, "references": {} } } },
+                        { "not": { "required": ["codeSet", "references"], "properties": { "codeSet": {}, "references": {} } } }
+                    ]
+                },
+                "decimals": {
+                    "not": {},
+                    "description": "MOVED: use \"synth\": { \"decimals\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                },
+                "allowedValues": {
+                    "not": {},
+                    "description": "MOVED: use \"synth\": { \"allowedValues\": [...] } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                },
+                "codeSet": {
+                    "not": {},
+                    "description": "MOVED: use \"synth\": { \"codeSet\": ... } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                },
+                "references": {
+                    "not": {},
+                    "description": "MOVED: use \"synth\": { \"references\": { \"producer\", \"field\" } } instead. All synthetic-data properties now live under the dimension's \"synth\" object."
+                }
+            },
+            "required": ["name"],
+            "additionalProperties": false,
+            "allOf": [
+                {
+                    "description": "A group dimension produces no column of its own, so it declares no 'type'; every other dimension must declare one.",
+                    "if": { "required": ["dimensions"], "properties": { "dimensions": {} } },
+                    "then": { "not": { "required": ["type"], "properties": { "type": {} } } },
+                    "else": { "required": ["type"], "properties": { "type": {} } }
+                }
+            ]
         }
     },
     "required": [

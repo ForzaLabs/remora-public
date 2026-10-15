@@ -20,11 +20,13 @@
             "type": "string",
             "enum": [
                 "aws-redshift",
+                "postgres",
                 "aws-s3",
                 "aws-sqs",
                 "local",
                 "delta-share",
-                "http-api"
+                "http-api",
+                "presigned-url"
             ],
             "description": "The type of data engine"
         },
@@ -168,6 +170,21 @@
                     "description": "How client credentials are sent to the token endpoint: HTTP Basic header ('basic', default) or request body ('post')",
                     "default": "basic"
                 },
+                "sslMode": {
+                    "type": "string",
+                    "enum": [
+                        "disable",
+                        "require",
+                        "verify-full"
+                    ],
+                    "description": "How a postgres connection negotiates TLS. Defaults to 'require' for a remote host and 'disable' for localhost. 'verify-full' also verifies the certificate chain, so point NODE_EXTRA_CA_CERTS at the RDS CA bundle when you use it."
+                },
+                "connectionTimeoutMs": {
+                    "type": "number",
+                    "description": "How long to wait for a postgres connection and its authentication handshake, in milliseconds",
+                    "default": 30000,
+                    "minimum": 1000
+                },
                 "url": {
                     "type": "string",
                     "format": "uri",
@@ -213,6 +230,29 @@
                     "description": "Request timeout in milliseconds",
                     "default": 30000,
                     "minimum": 1000
+                },
+                "signedUrlField": {
+                    "type": "string",
+                    "description": "presigned-url only. Dot path to the signed URL inside the minting endpoint's JSON response, e.g. 'data.uploadUrl'",
+                    "default": "url"
+                },
+                "signedHeadersField": {
+                    "type": "string",
+                    "description": "presigned-url only. Dot path to an object of headers in the minting response. Set it when the minter signs headers (a Content-Type, an x-amz-*): the transfer must send them back verbatim or S3 answers 403 SignatureDoesNotMatch"
+                },
+                "fileNameParam": {
+                    "type": "string",
+                    "description": "presigned-url only. Name of the field carrying the file name to the minting endpoint - in the JSON body on a POST/PUT/PATCH, as a query parameter otherwise",
+                    "default": "filename"
+                },
+                "signedUrlMethod": {
+                    "type": "string",
+                    "enum": [
+                        "GET",
+                        "PUT",
+                        "POST"
+                    ],
+                    "description": "presigned-url only. HTTP method used against the signed URL itself. Defaults to GET when the source is read from and PUT when it is exported to"
                 }
             },
             "required": [
@@ -273,6 +313,37 @@
             "_version": 1
         },
         {
+            "name": "Aurora Postgres via IAM auth",
+            "description": "Postgres source on RDS/Aurora that authenticates with a short-lived IAM auth token instead of a stored password. The AWS credentials that sign the token come from the SDK default chain.",
+            "engine": "postgres",
+            "authentication": {
+                "method": "iam",
+                "host": "analytics.cluster-abc123.eu-west-1.rds.amazonaws.com",
+                "port": "5432",
+                "database": "analytics",
+                "schema": "public",
+                "user": "remora_reader",
+                "region": "eu-west-1",
+                "sslMode": "require"
+            },
+            "_version": 1
+        },
+        {
+            "name": "Postgres with a password",
+            "description": "Postgres source authenticated with a username and password taken from environment variables",
+            "engine": "postgres",
+            "authentication": {
+                "method": "username-password",
+                "host": "{PG_HOST}",
+                "port": "5432",
+                "database": "analytics",
+                "schema": "public",
+                "user": "{PG_USER}",
+                "password": "{PG_PASSWORD}"
+            },
+            "_version": 1
+        },
+        {
             "name": "S3 via assumed IAM role",
             "description": "S3 source that assumes a cross-account IAM role via STS. Base identity comes from the SDK default chain (instance/task role, SSO, or an assume-only key in env vars) — no data-access keys stored here.",
             "engine": "aws-s3",
@@ -328,6 +399,38 @@
                 "clientId": "{DELTA_SHARE_CLIENT_ID}",
                 "clientSecret": "{DELTA_SHARE_CLIENT_SECRET}",
                 "scope": "delta_sharing"
+            },
+            "_version": 1
+        },
+        {
+            "name": "Partner upload",
+            "description": "Exports to a bucket we hold no credentials for: an API Gateway endpoint with M2M (OAuth2 client-credentials) auth signs an upload URL per file, and remora PUTs to it",
+            "engine": "presigned-url",
+            "authentication": {
+                "method": "oidc",
+                "url": "https://api.example.com/v1/uploads/presign",
+                "httpMethod": "POST",
+                "fileNameParam": "filename",
+                "signedUrlField": "uploadUrl",
+                "tokenEndpoint": "https://example.auth.eu-west-1.amazoncognito.com/oauth2/token",
+                "clientId": "{PRESIGN_CLIENT_ID}",
+                "clientSecret": "{PRESIGN_CLIENT_SECRET}",
+                "scope": "uploads/write"
+            },
+            "_version": 1
+        },
+        {
+            "name": "Partner download",
+            "description": "Reads a file signed on demand by an API key protected endpoint. The producer's fileKey is the name sent to it",
+            "engine": "presigned-url",
+            "authentication": {
+                "method": "api-key",
+                "url": "https://api.example.com/v1/downloads/presign",
+                "httpMethod": "GET",
+                "apiKey": "{PRESIGN_API_KEY}",
+                "apiKeyHeader": "x-api-key",
+                "fileNameParam": "key",
+                "signedUrlField": "data.url"
             },
             "_version": 1
         }
