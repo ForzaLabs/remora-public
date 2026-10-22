@@ -81,7 +81,7 @@
                 "properties": {
                     "key": {
                         "type": "string",
-                        "description": "The dimension/measure of the producer, OR '*' for every dimension of one producer, OR a pattern holding a '*' (e.g. 'addr*Street') that selects every matching field — each keeping the rest of this field's configuration, so one entry can transform or validate a whole family of columns."
+                        "description": "The dimension of the producer, OR '*' for every dimension of one producer, OR a pattern holding a '*' (e.g. 'addr*Street') that selects every matching field — each keeping the rest of this field's configuration, so one entry can transform or validate a whole family of columns."
                     },
                     "description": {
                         "type": "string",
@@ -301,7 +301,7 @@
         },
         "outputs": {
             "type": "array",
-            "description": "Output formats and configurations for the consumer",
+            "description": "Where and how the consumer exports its data. Exactly one: a run stages its records in one encoding and moves that file to the destination, so a second output has nothing left to write.",
             "items": {
                 "type": "object",
                 "properties": {
@@ -311,9 +311,10 @@
                             "API",
                             "CSV",
                             "JSON",
+                            "PARQUET",
                             "TXT"
                         ],
-                        "description": "The output format of the consumer. JSON/CSV/TXT export to a file destination; API exposes the result over the API."
+                        "description": "The output format of the consumer. JSON/CSV/TXT/PARQUET export to a file destination; API exposes the result over the API. PARQUET writes a typed, SNAPPY-compressed columnar file whose schema comes from the consumer's dimension types."
                     },
                     "exportDestination": {
                         "type": "string",
@@ -325,15 +326,15 @@
                     },
                     "delimiter": {
                         "type": "string",
-                        "description": "Only used when the format is 'TXT'. The single-character delimiter used between fields in the exported file. Defaults to a tab if not set."
+                        "description": "Only used when the format is 'TXT'. The single-character delimiter used between fields in the exported file. Defaults to a tab if not set. Ignored by every other format, PARQUET included."
                     },
                     "header": {
                         "type": "boolean",
-                        "description": "'CSV'/'TXT' only. Writes the field names as the first line of each exported file, quoted and delimited exactly as the rows under them. Defaults to true; set it to false for a destination that reads the first line as data."
+                        "description": "'CSV'/'TXT' only. Writes the field names as the first line of each exported file, quoted and delimited exactly as the rows under them. Defaults to true; set it to false for a destination that reads the first line as data. Rejected on PARQUET, which carries its own schema."
                     },
                     "omitNull": {
                         "type": "boolean",
-                        "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
+                        "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT/PARQUET), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
                     },
                     "trigger": {
                         "type": "object",
@@ -443,7 +444,8 @@
                 ],
                 "additionalProperties": false
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 1
         },
         "filters": {
             "type": "array",
@@ -1875,9 +1877,6 @@
                 }
             ],
             "outputs": [
-                {
-                    "format": "API"
-                },
                 {
                     "format": "JSON",
                     "exportDestination": "Data Lake",

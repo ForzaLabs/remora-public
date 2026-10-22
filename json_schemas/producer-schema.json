@@ -26,32 +26,6 @@
             "items": { "$ref": "#/definitions/dimension" },
             "minItems": 1
         },
-        "measures": {
-            "type": "array",
-            "description": "Optional measures for the producer",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "The name of the measure"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Optional description of the measure"
-                    },
-                    "sql": {
-                        "type": "string",
-                        "description": "SQL command used to create a metric"
-                    }
-                },
-                "required": [
-                    "name",
-                    "sql"
-                ],
-                "additionalProperties": false
-            }
-        },
         "settings": {
             "type": "object",
             "description": "Settings for the producer",
@@ -513,18 +487,6 @@
                 {
                     "name": "signup_date",
                     "type": "datetime"
-                }
-            ],
-            "measures": [
-                {
-                    "name": "total_orders",
-                    "description": "Total number of orders by this customer",
-                    "sql": "COUNT(order_id)"
-                },
-                {
-                    "name": "total_spent",
-                    "description": "Total amount spent by this customer",
-                    "sql": "SUM(order_amount)"
                 }
             ],
             "settings": {

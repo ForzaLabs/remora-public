@@ -1,0 +1,3 @@
+# Published to the mirror as .gitignore. Named without the dot here so it does not alter the ignore
+# rules of the repository it is authored in.
+.DS_Store
