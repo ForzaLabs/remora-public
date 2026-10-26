@@ -377,6 +377,81 @@
                         "type": "boolean",
                         "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT/PARQUET), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
                     },
+                    "recordLength": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "'FIXED' only, and not alongside 'layouts', where each layout declares its own. The declared width of one record, which compile checks the field widths sum to and the export checks every composed line against. It is the length of the record as written, not the length of the copybook it came from: the fields past the cut are simply not declared rather than padded to. Every record is exactly this long, including one whose last field is null — that field is written full width in 'nullFill' and the line is never cut short."
+                    },
+                    "defaults": {
+                        "type": "object",
+                        "description": "'FIXED' only. The fill rules every field of one type takes unless its own 'position' overrides them, keyed by the field's type. A wide layout declares 'numbers are right-aligned and zero-padded' once instead of on each of 90 fields.",
+                        "additionalProperties": false,
+                        "properties": {
+                            "string": { "$ref": "#/definitions/fixedFieldFill" },
+                            "number": { "$ref": "#/definitions/fixedFieldFill" },
+                            "datetime": { "$ref": "#/definitions/fixedFieldFill" },
+                            "boolean": { "$ref": "#/definitions/fixedFieldFill" }
+                        }
+                    },
+                    "lineEnding": {
+                        "type": "string",
+                        "enum": ["lf", "crlf"],
+                        "description": "'FIXED' only. What ends every record, the last one included. Defaults to 'lf'. A real positional feed picks one and holds it — the NASCO POD files are CRLF on every line. A file with no terminator at all is fixed record framing (RECFM=FB) and is not expressible here."
+                    },
+                    "layouts": {
+                        "type": "object",
+                        "description": "'FIXED' only. Several record layouts in one file, picked per record by the value of one field — the write-side mirror of a producer's 'recordSelector'. The records come out grouped, one contiguous block per value in 'order', keeping within each block the order they were read in. Rejected together with a top-level 'recordLength': each layout declares its own. Without it a FIXED output writes every visible field as one layout.",
+                        "additionalProperties": false,
+                        "required": ["discriminator", "order", "values"],
+                        "properties": {
+                            "discriminator": {
+                                "type": "string",
+                                "description": "The consumer field whose value picks the layout, by the name it is exported under (the alias where one is set). It does not have to be written by any of the layouts, though it usually is."
+                            },
+                            "order": {
+                                "type": "array",
+                                "description": "The discriminator values in the order their blocks are written. The complete list: a record carrying a value that is not here has no block to go in and fails the run.",
+                                "items": { "type": "string" },
+                                "minItems": 1,
+                                "uniqueItems": true
+                            },
+                            "values": {
+                                "type": "object",
+                                "description": "The layout each discriminator value is written with. Every value in 'order' needs an entry.",
+                                "minProperties": 1,
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": ["fields"],
+                                    "properties": {
+                                        "fields": {
+                                            "type": "array",
+                                            "description": "The fields this layout writes, in column order, by their exported names. A subset of the consumer's visible fields: the consumer declares the union of every layout's fields and each layout names the ones its records carry.",
+                                            "items": { "type": "string" },
+                                            "minItems": 1,
+                                            "uniqueItems": true
+                                        },
+                                        "recordLength": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "description": "As the output's 'recordLength', for this layout alone. A multi-layout output has no single one."
+                                        },
+                                        "defaults": {
+                                            "type": "object",
+                                            "description": "As the output's 'defaults', applied over them for this layout's fields alone.",
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "string": { "$ref": "#/definitions/fixedFieldFill" },
+                                                "number": { "$ref": "#/definitions/fixedFieldFill" },
+                                                "datetime": { "$ref": "#/definitions/fixedFieldFill" },
+                                                "boolean": { "$ref": "#/definitions/fixedFieldFill" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     "trigger": {
                         "type": "object",
                         "description": "Triggers to perform the export (not just the usual 'Deploy')",
@@ -808,6 +883,35 @@
     ],
     "additionalProperties": false,
     "definitions": {
+        "fixedFieldFill": {
+            "type": "object",
+            "description": "How a value is filled out to the width of its fixed-width field, set once for every field of one type. A field's own 'position' wins where both set the same rule.",
+            "additionalProperties": false,
+            "properties": {
+                "align": {
+                    "type": "string",
+                    "enum": ["left", "right"],
+                    "description": "Which end of the field the value sits at, the other end taking the padding. Defaults by the field's type: 'left' for a string, 'right' for a number."
+                },
+                "pad": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1,
+                    "description": "The single character the field is filled out with. Defaults by the field's type: a space for a string, '0' for a number."
+                },
+                "nullFill": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1,
+                    "description": "The single character the full width of a NULL field is filled with. Defaults to a space, not to 'pad': zero-filling an empty numeric field writes a real value where there was none. An empty string counts as a null here."
+                },
+                "overflow": {
+                    "type": "string",
+                    "enum": ["fail", "truncate"],
+                    "description": "What a value longer than 'width' does. 'fail' (the default) stops the run naming the field, the value and both widths; 'truncate' cuts the value to 'width', for the layouts that genuinely specify truncation."
+                }
+            }
+        },
         "singleTransformation": {
             "oneOf": [
                 {

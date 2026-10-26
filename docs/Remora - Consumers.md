@@ -201,6 +201,7 @@ Fields define which data columns to include in the consumer output and how to tr
 | `validate` | ❌ | Field-level data-quality rules (see [Field Validation](#field-validation)) | Array of `{ rule, onFail }` |
 | `copyFrom` | ❌ | Add a new field that is a value copy of an earlier field (copies the value *before* that field's transformations) | `"amount"`, `"Sale Amount"` |
 | `lineCount` | ❌ | Populate the field with the 1-based source line number of each record (consistent across parallel workers) | `true`, `false` |
+| `position` | ⚠️ | `FIXED` output only, and required on every visible field of one: the columns this field occupies and how its value is filled out to them (see [FIXED Output](#fixed-output)) | `{ "width": 10, "start": 21 }` |
 
 A field's **output name** is its `alias` when it has one and its `key` otherwise. Two fields resolving to the same output name are rejected at `compile`: a record is keyed by that name, so a collision never failed at run time — one field simply overwrote the other.
 
@@ -973,12 +974,16 @@ consumer over the same producers.
 
 | Property | Required | Description | Example |
 | --- | --- | --- | --- |
-| `format` | ✅ | Output format | `"JSON"`, `"CSV"`, `"TXT"`, `"PARQUET"`, `"API"` |
+| `format` | ✅ | Output format | `"JSON"`, `"CSV"`, `"TXT"`, `"FIXED"`, `"PARQUET"`, `"API"` |
 | `exportDestination` | ❌ | Target destination source | `"s3-bucket"`, `"local-output"` |
 | `exportName` | ❌ | Fixed filename for exports | `"daily-report"`, `"customer-data"` |
-| `delimiter` | ❌ | Field delimiter, only used for `TXT` output (defaults to a tab). Ignored by every other format, `PARQUET` included | `"\t"`, `";"` |
-| `header` | ❌ | `CSV`/`TXT` only: write the field names as the first line of each exported file (see [The Header Line](#the-header-line)). Rejected on `PARQUET`, which carries its own schema | `true` (default), `false` |
+| `delimiter` | ❌ | Field delimiter, only used for `TXT` output (defaults to a tab). Ignored by every other format, `PARQUET` included, and rejected on `FIXED`, which has no delimiter at all | `"\t"`, `";"` |
+| `header` | ❌ | `CSV`/`TXT` only: write the field names as the first line of each exported file (see [The Header Line](#the-header-line)). Rejected on `PARQUET`, which carries its own schema, and on `FIXED`, which has no room for one | `true` (default), `false` |
 | `omitNull` | ❌ | `JSON`/`API` only: leave out the fields whose value is `null` (see [Omitting Null Fields](#omitting-null-fields)) | `true`, `false` (default) |
+| `recordLength` | ❌ | `FIXED` only: the declared length of one record, which `compile` checks the field widths sum to (see [FIXED Output](#fixed-output)) | `196` |
+| `defaults` | ❌ | `FIXED` only: the fill rules every field of one dimension type takes unless its own `position` overrides them | `{ "number": { "pad": "0" } }` |
+| `lineEnding` | ❌ | `FIXED` only: what ends every record, the last one included | `"lf"` (default), `"crlf"` |
+| `layouts` | ❌ | `FIXED` only: several record layouts in one file, picked per record by the value of one field (see [Several Record Layouts in One File](#several-record-layouts-in-one-file)) | Layout map |
 | `trigger` | ❌ | Automated execution triggers | Trigger configuration |
 | `onSuccess` | ❌ | Actions to perform on successful export | Action array |
 | `onError` | ❌ | Actions to perform on export error | Action array |
@@ -1018,7 +1023,7 @@ A record normally carries every field, including the ones with no value (`"addr2
 
 Records then legitimately differ in shape from one another, which is why it applies to `JSON` and `API` only:
 
-- On `CSV`/`TXT`/`PARQUET` it is **rejected**, not ignored — a positional column can't be missing from a row, and a parquet row group declares every column up front.
+- On `CSV`/`TXT`/`FIXED`/`PARQUET` it is **rejected**, not ignored — a positional column can't be missing from a row, and a parquet row group declares every column up front.
 - Only `null` is dropped. An empty string, a `0` and a `false` are values, and are exported.
 
 ### **CSV Output**
@@ -1037,11 +1042,11 @@ Records then legitimately differ in shape from one another, which is why it appl
 
 ### **The Header Line**
 
-A `CSV` or `TXT` file is positional: it carries values and nothing that names them. So both formats write a **header line** first — the exported field names, in column order, quoted and delimited exactly as the rows under them, so the header parses with the same reader the data does:
+A `CSV` or `TXT` file is positional: it carries values and nothing that names them. So both formats write a **header line** first — the exported field names, in column order, quoted and delimited on exactly the rule the rows under it follow, so the header parses with the same reader the data does:
 
 ```
-"id","primary_email","plan","country"
-"USR-00001","alice.rossi@example.com","free","Italy"
+id,primary_email,plan,country
+USR-00001,alice.rossi@example.com,free,Italy
 ```
 
 The names are the exported ones: a field's `alias` where it has one, its `key` otherwise. A `hidden` field is not written, so it is not in the header either. With a `split`, **every** file of the output carries the header, not just the first one — each file has to stand on its own.
@@ -1061,23 +1066,31 @@ Set `header` to `false` where the destination reads the first line as data:
 }
 ```
 
-It only applies to `CSV` and `TXT`. On a `JSON` or `API` output each record already carries its own field names, and a `PARQUET` file carries its own schema, so `header` is **rejected** at compile there rather than ignored.
+It only applies to `CSV` and `TXT`. On a `JSON` or `API` output each record already carries its own field names, a `PARQUET` file carries its own schema, and a `FIXED` line has no room for a name that would not sit on the columns it describes — so `header` is **rejected** at compile on all four rather than ignored.
 
 ### **How a value is written**
 
-A `CSV`/`TXT` file writes every value quoted, and that leaves the unquoted empty field free to mean
-something: it is a **null**. An empty string is `""`. The two are different values, and on a
-positional line this is the only way to tell them apart:
+A `CSV`/`TXT` file **quotes a value only where the quotes carry meaning**. A value is written bare
+unless it holds the delimiter, a `"`, a line break, or a space at either end — and an empty string
+is quoted too, because that is what leaves the unquoted empty field free to mean something else: it
+is a **null**. The two are different values, and on a positional line this is the only way to tell
+them apart:
 
 ```
-"id","note","amount"
-"USR-1","","12.5"       <- note is the empty string
-"USR-2",,               <- note and amount are null
+id,note,amount
+USR-1,"",12.5        <- note is the empty string
+USR-2,,              <- note and amount are null
+USR-3,"a, b",12.5    <- note holds the delimiter, so it is quoted
+USR-4,"  padded  ",0 <- note has edge spaces, so it is quoted
 ```
 
 A reader that treats an unquoted empty field as "no value" — which most CSV readers do, and which is
 what `COPY`, `LOAD DATA` and a pandas `read_csv` all assume — gets a null back. A reader that does
 not sees an empty string, exactly as before.
+
+Edge spaces are quoted for the same reason the empty string is: most CSV readers, Remora's own
+included, trim an unquoted field, so `  padded  ` written bare would come back shorter than it went
+out. Quoting it is what makes the round trip exact.
 
 A value holding a **newline** or a carriage return is written as the two characters `\n` or `\r`.
 A line of a remora file is one record, everywhere in the pipeline, so a value carrying a real
@@ -1102,6 +1115,190 @@ Delimited text export. The `delimiter` is configurable and defaults to a tab if 
 }
 ```
 
+### **FIXED Output**
+
+A fixed-width (**positional**) flat file: no delimiter, no quoting, no header line. Every field occupies the same columns on every record, and each value is filled out to the width its layout gives it. This is the write side of the `FIXED` producer (see the Producers guide) — what you export when the receiver reads by column rather than by field name: a mainframe feed, a clearing-house submission, a banking return file.
+
+Each visible field declares a `position`, and the output declares how long a record is:
+
+```json
+{
+  "fields": [
+    { "key": "member_id",    "position": { "width": 12, "start": 1 } },
+    { "key": "service_date", "position": { "width": 8,  "start": 13 } },
+    { "key": "amount",       "position": { "width": 10, "start": 21 } }
+  ],
+  "outputs": [
+    {
+      "format": "FIXED",
+      "exportDestination": "local-output",
+      "exportName": "claims",
+      "recordLength": 30
+    }
+  ]
+}
+```
+
+```
+MBR000000123202604130000123.45
+```
+
+The file is exported with a `.txt` extension, to any file destination (local, S3, a pre-signed URL), with the same naming, [splitting](#output-splitting), trigger and `onSuccess` behaviour as every other file output.
+
+### **How a Value Fills Its Field**
+
+| Property | Required | Description | Example |
+| --- | --- | --- | --- |
+| `position.width` | ✅ | How many characters the field occupies on the line | `10` |
+| `position.align` | ❌ | Which end of the field the value sits at, the other end taking the padding. Defaults by type: `left` for a `string`, `datetime` or `boolean`, `right` for a `number` | `"left"`, `"right"` |
+| `position.pad` | ❌ | The single character the rest of the field is filled with. Defaults by type: a space for a `string`, `datetime` or `boolean`, `0` for a `number` | `" "`, `"0"` |
+| `position.nullFill` | ❌ | The single character a **null** field is filled with, for its full width. Defaults to a space for every type | `" "`, `"0"` |
+| `position.overflow` | ❌ | What a value longer than `width` does | `"fail"` (default), `"truncate"` |
+| `position.start` | ❌ | 1-based column the field is expected to start at. An assertion, not a second source of truth (see below) | `21` |
+
+Five rules decide what lands on the line:
+
+| Case | What is written |
+| --- | --- |
+| Value shorter than `width` | Padded out to `width` with `pad`, on the side `align` leaves free |
+| Value exactly `width` | The value |
+| Value longer than `width` | **The run fails**, naming the field, the value and both widths — unless `overflow` is `"truncate"` |
+| `null` | The full width in `nullFill` |
+| Empty string | The same as a `null`. The staged encoding keeps the two apart; a positional line cannot |
+
+**Overflow fails rather than truncates.** A truncated account number is a plausible-looking account number, and a feed nobody re-reads is exactly where that ships unnoticed. `"overflow": "truncate"` exists per field for the layouts that genuinely specify a cut, and the end that survives follows `align`: a left-aligned value keeps its head, a right-aligned one keeps its low-order tail, which is what a COBOL `MOVE` into a shorter field does.
+
+**A null is filled with spaces, not zeros, even on a number.** Zero-filling an empty numeric field writes `00`, which the receiver reads as the number zero — a real value where the record carried none. Set `nullFill` on the field, or per type in `defaults`, for a receiver that needs something else.
+
+**Carry a positional field through as a `string`.** A `number` dimension drops leading zeros — `"00"` read as a number is `0` — so writing it back takes `"align": "right"` with `"pad": "0"`, a rule you have to get right field by field. Declaring the producer dimension a `string` instead carries the characters through untouched.
+
+### **Column Order, Gaps and `start`**
+
+**Column order is field order, and every offset is computed from the widths before it.** No column number is ever transcribed by hand: list the fields in the order the record is written, give each one a width, and the layout falls out of them. That is the same rule the read side follows, and it is why a layout is written once rather than renumbered every time a field moves.
+
+Gaps and COBOL `FILLER` need no concept of their own — a [fixed field](#fixed-fields) with a width is blank columns:
+
+```json
+{ "key": "filler", "fixed": true, "default": "", "position": { "width": 103 } }
+```
+
+**`position.start` and `recordLength` are checksums.** Where you write them, `compile` recomputes them from the widths and fails if they disagree. A layout spec gives you the widths, the start columns *and* the record length, and declaring all three is what catches a field you left out: a missing 8-character filler shifts every field after it, and nothing about the resulting file looks wrong.
+
+`recordLength` is the length of the record **as written**, not the length of the copybook it came from. Where a 256-column layout is cut after the last field that carries anything, the fields past the cut are simply not declared — not padded to. Every record is then exactly `recordLength` characters, a record whose last field is null included: that field is written full width in `nullFill` and the line is never cut short.
+
+`remora compile` prints the resolved layout, so you check it against the spec once instead of counting characters:
+
+```
+FIXED layout of consumer "claims_export"
+  record: 30 characters, 3 field(s)
+    start    end  width  field
+        1     12     12  member_id
+       13     20      8  service_date
+       21     30     10  amount
+```
+
+Every problem with a layout is reported in one `compile` rather than one per run, so six fields missing a width come back as six lines. `run` and `verify` resolve the same layout before they read a producer, so a layout that does not add up fails in front of the run instead of after the whole dataset has been built.
+
+### **Fill Rules by Type**
+
+A wide layout states a rule once in `defaults` instead of on each of ninety fields, keyed by the field's dimension type:
+
+```json
+{
+  "outputs": [
+    {
+      "format": "FIXED",
+      "exportDestination": "local-output",
+      "recordLength": 256,
+      "defaults": {
+        "number": { "nullFill": "0" },
+        "datetime": { "align": "right", "pad": "0" }
+      }
+    }
+  ]
+}
+```
+
+Above: a receiver that reads a blank numeric field as an error gets `0` there instead, and dates written as bare digits are right-aligned and zero-padded like the numbers they look like.
+
+Each of `align`, `pad`, `nullFill` and `overflow` resolves on its own, nearest declaration first: the field's own `position`, then the layout's `defaults`, then the output's `defaults`, then the type's built-in rule. A field that sets only `align` keeps the `pad` the defaults gave it.
+
+### **Several Record Layouts in One File**
+
+A positional feed often carries more than one kind of record in one file — a 44-character transaction and a 196-character one, told apart by a marker on the line. `layouts` is the write-side mirror of a producer's `recordSelector`: it names the field whose value picks the layout, and what each value writes.
+
+```json
+{
+  "outputs": [
+    {
+      "format": "FIXED",
+      "exportDestination": "local-output",
+      "exportName": "pod_return",
+      "lineEnding": "crlf",
+      "layouts": {
+        "discriminator": "key_tran_id",
+        "order": ["1300", "1200"],
+        "values": {
+          "1300": {
+            "fields": ["key_serv_plan", "key_tran_id", "key_prov_id", "main_user"],
+            "recordLength": 44
+          },
+          "1200": {
+            "fields": ["key_serv_plan", "key_tran_id", "key_prov_id", "key_version", "main_user", "sort_date"],
+            "recordLength": 196
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+| Property | Required | Description |
+| --- | --- | --- |
+| `discriminator` | ✅ | The consumer field whose value picks the layout, by the name it is exported under. It does not have to be written by any of the layouts, though it usually is |
+| `order` | ✅ | The discriminator values in the order their record blocks are written. The complete list: a record carrying a value that is not here has no block to go in and **fails the run**, naming the value |
+| `values` | ✅ | One entry per value in `order`: the `fields` it writes in column order, plus its own `recordLength` and `defaults` |
+
+How it behaves:
+
+- **The records come out grouped**, one contiguous block per value of `order` — which is how a real positional feed is written. Within a block they keep the order they were read in; Remora has no output sort, so the order inside a block is the order the producers delivered. With a [`split`](#output-splitting), each file is grouped on its own.
+- The consumer's `fields` is the **union** of every layout's, and each layout names the subset its records carry, in its own column order. So one field can sit at different columns in different layouts — and that field then declares a `width` and no `start`, because a `start` is a column on one line and that field sits on several.
+- A field the consumer declares that no layout writes needs no `position`.
+- A `recordLength` on the output beside `layouts` is **rejected**: a multi-layout file has no single record length. Declare one per layout.
+- At most **64** layouts in one output.
+- Where the record types come from different producers, `union` still requires them to share their output dimensions: each producer declares the superset of fields and leaves the ones its layout has no field for empty.
+
+### **How a Record Ends**
+
+`lineEnding` is `"lf"` (the default) or `"crlf"`, and it ends **every** record, the last one included. A real positional feed picks one and holds it: NASCO POD files, for instance, are CRLF throughout.
+
+A file with **no terminator at all** — fixed record framing, `RECFM=FB`, where the record length alone says where one record ends — is not expressible here, and asking for it is the signal that what is needed is byte-mode framing rather than a line-based file. Remora does not write one.
+
+### **What the Receiver Has To Do**
+
+The file Remora writes is **text, encoded UTF-8, one character per column**. For the layouts this was built for that is plain ASCII and the distinction never comes up — but a non-ASCII character (`é`, a typographic quote) is one column and more than one byte, so the record stays `recordLength` *characters* while the line stops being `recordLength` *bytes*. Where the receiver counts bytes, keep the data ASCII: a [`replace`](#pattern-replacement) transform on the field is the place to force it.
+
+Two conversions a mainframe target needs are the receiver's, not Remora's, and are the mirror image of the ones the same shops already run on data coming the other way:
+
+- **ASCII → EBCDIC.** A z/OS job reads EBCDIC; this file leaves as ASCII.
+- **Reframing to `RECFM=FB`.** This file leaves as line-terminated records; a fixed-block dataset carries no terminators at all.
+
+Both are normally one step of the transfer job that delivers the file, not something the layout can express.
+
+### **What a FIXED Output Cannot Declare**
+
+Each of these is **rejected** at `compile` rather than ignored: silently dropping a rule you wrote is how a file ships looking almost right.
+
+| Declaration | Why |
+| --- | --- |
+| `header` | A positional line has no room for one, and a field name would not sit on the columns it describes |
+| `delimiter` | A positional line has none: its fields are found by the columns they occupy |
+| `omitNull` | A column can't be missing from a positional row. A null is written as `nullFill`, full width |
+| `"key": "*"` | Every field of a positional line declares its own `width`, so the field list has to be explicit. A [pattern key](#pattern-keys) is allowed, but every column it matches takes the same `position` |
+
+The reverse is rejected too: `recordLength`, `defaults`, `lineEnding` and `layouts` on a `CSV`, `TXT`, `JSON`, `PARQUET` or `API` output, and a field `position` on a consumer whose output is not `FIXED`.
+
 ### **PARQUET Output**
 
 Apache Parquet: a typed, SNAPPY-compressed **columnar** file, which is what a data lake expects to read. It writes to any file destination (local, S3, a pre-signed URL) with the same naming, splitting and trigger behaviour as every other file output:
@@ -1118,7 +1315,7 @@ Apache Parquet: a typed, SNAPPY-compressed **columnar** file, which is what a da
 }
 ```
 
-Two things it gives a reader that a `CSV` export cannot. The file **declares its types**, so nothing downstream has to guess them back out of the text. And it is much smaller: a four-column, 2-million-row dataset is about 28 MB as parquet against 115 MB as quoted CSV.
+Two things it gives a reader that a `CSV` export cannot. The file **declares its types**, so nothing downstream has to guess them back out of the text. And it is much smaller: a four-column, 2-million-row dataset is about 28 MB as parquet against roughly 100 MB as CSV.
 
 The schema comes from what the consumer already declares — each field's dimension type:
 
