@@ -290,6 +290,46 @@
                     "copyFrom": {
                         "type": "string",
                         "description": "If set, this field will be added as new to the consumer dataset and will be a copy of the specified field. Use the alias if set, otherwise the key. The source field should come before this field in the fields list."
+                    },
+                    "position": {
+                        "type": "object",
+                        "description": "'FIXED' output only, and required on every visible field of one: where this field sits on the positional line and how its value is filled out to that width. Column order is field order and the offsets are computed from the widths, so no column number is transcribed by hand. A value longer than 'width' fails the run rather than being cut.",
+                        "additionalProperties": false,
+                        "required": ["width"],
+                        "properties": {
+                            "width": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "How many characters the field occupies on the line."
+                            },
+                            "align": {
+                                "type": "string",
+                                "enum": ["left", "right"],
+                                "description": "Which end of the field the value sits at, the other end taking the padding. Defaults by the field's type: 'left' for a string, 'right' for a number."
+                            },
+                            "pad": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1,
+                                "description": "The single character the field is filled out with. Defaults by the field's type: a space for a string, '0' for a number."
+                            },
+                            "nullFill": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1,
+                                "description": "The single character the full width of a NULL field is filled with. Defaults to a space, not to 'pad': zero-filling an empty numeric field writes a real value where there was none. An empty string counts as a null here."
+                            },
+                            "overflow": {
+                                "type": "string",
+                                "enum": ["fail", "truncate"],
+                                "description": "What a value longer than 'width' does. 'fail' (the default) stops the run naming the field, the value and both widths; 'truncate' cuts the value to 'width', for the layouts that genuinely specify truncation."
+                            },
+                            "start": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Optional 1-based column the field is expected to start at. Not a second source of truth — the offsets always come from the widths — but an assertion that compile recomputes and fails on, so a forgotten filler is caught where it is written."
+                            }
+                        }
                     }
                 },
                 "required": [
@@ -310,11 +350,12 @@
                         "enum": [
                             "API",
                             "CSV",
+                            "FIXED",
                             "JSON",
                             "PARQUET",
                             "TXT"
                         ],
-                        "description": "The output format of the consumer. JSON/CSV/TXT/PARQUET export to a file destination; API exposes the result over the API. PARQUET writes a typed, SNAPPY-compressed columnar file whose schema comes from the consumer's dimension types."
+                        "description": "The output format of the consumer. JSON/CSV/TXT/PARQUET/FIXED export to a file destination; API exposes the result over the API. PARQUET writes a typed, SNAPPY-compressed columnar file whose schema comes from the consumer's dimension types. FIXED writes a positional flat file — no delimiter, no quotes, no header — where each visible field declares its own 'position'."
                     },
                     "exportDestination": {
                         "type": "string",
