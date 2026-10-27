@@ -179,6 +179,7 @@ Notes:
 - Values are **trimmed**, so space- and zero-padded fields (`"0000123.45"`, `"ABC   "`) read as their real value. A field that is entirely padding reads as `null` — or as its type's empty value, if the dimension declares `nullable: false`.
 - Gaps are fine: filler columns you don't map simply have no dimension. Overlaps are fine too — a composite field and its subfields can both be declared.
 - Combine `position` with `format` to parse dates written as bare digits, as in `service_date` above. Day-of-year ("Julian") dates use `DDD`: `"format": "YYYYDDD"` reads `2007305` as 1 November 2007.
+- An amount written **without its decimal point** — `0012345` meaning `123.45`, the way a COBOL `PIC S9(7)V99` field is written — needs `scale`. See [Implied decimals](#implied-decimals).
 - A dimension marked `sourceFilename` needs no `position`: it isn't in the line.
 - `discover` cannot be used on a `FIXED` producer — a positional layout can only come from the file's spec. Use `sample` to check that your positions line up.
 
@@ -785,6 +786,7 @@ Dimensions define the structure and characteristics of data fields in your produ
 | `classification` | ❌ | Data privacy classification | `["PII"]`, `["PHI"]`, `["GDPR"]` |
 | `mask` | ❌ | Data masking method | `hash`, `mask`, `crypt`, `random`, `seeded-random`, `none` |
 | `format` | ❌ | Source parse/cast format (e.g. a date format). `DDD` reads a day-of-year ("Julian") date | `"YYYYMMDD"`, `"DD-MM-YYYY"`, `"YYYYDDD"` |
+| `scale` | ❌ | Implied decimal places of a `number` written without a decimal point. See [Implied decimals](#implied-decimals). | `2` |
 | `sourceFilename` | ❌ | Populate this dimension with the source file name (file producers only; one per producer) | `true`, `false` (default) |
 | `position` | ⚠️ | Where the value sits in the line, for `FIXED` (fixed-width) producers — required on every dimension of one, ignored elsewhere. See [Fixed-Width Files](#fixed-width-files-fixed). | `{ "start": 21, "length": 10 }`, `{ "start": 21, "end": 30 }` |
 | `position.after` | ❌ | Anchors the position to the end of an earlier group's actual occurrences instead of to the start of the line. See [Variable Occurrences](#variable-occurrences-and-anchoring). | `{ "after": "reimb", "length": 18 }` |
@@ -899,6 +901,29 @@ Bound the **parent** field of a foreign key, never the child: a `synth.reference
   "description": "Transaction amount in dollars"
 }
 ```
+
+#### Implied decimals
+
+Flat files from mainframe and other legacy systems write an amount **without its decimal point**: the field holds digits only, and the layout says how many of the trailing ones are the fraction. A COBOL `PIC S9(7)V99` amount of `123.45` is written `000012345`. Read as-is that is `12345` — a perfectly plausible amount, 100× wrong, and nothing downstream can tell.
+
+`scale` says how many of the trailing digits are the fraction:
+
+```json
+{
+  "name": "claim_amount",
+  "type": "number",
+  "scale": 2,
+  "position": { "start": 21, "length": 9 }
+}
+```
+
+`000012345` then reads as `123.45`, and `000000005` as `0.05`.
+
+- `number` dimensions only, and 1 or more. A field written *with* its decimal point, or with no fraction at all, omits `scale` entirely.
+- A field declaring `scale` holds digits and an optional leading sign, nothing else. A decimal point in the value contradicts the layout, so the run fails naming the value rather than guessing which of the two readings was meant.
+- Not restricted to `FIXED`: a CSV column written the same way reads the same way.
+- Only text is decoded. A source that already hands Remora a number (JSON, SQL) hands over the value itself, so `scale` leaves it alone.
+- `synth` generates values with `scale` decimal places, so synthetic data fits the column it describes. `synth.decimals` overrides that.
 
 For synthetic data (`synth`), use `synth.decimals` to control how many decimal places generated `number` values get, so they load into the destination column. `decimals: 0` forces whole integers (fits an `integer` column); a positive value rounds to that many decimals:
 

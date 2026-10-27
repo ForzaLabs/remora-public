@@ -214,6 +214,13 @@
                     "type": "string",
                     "description": "Optional source format used when parsing/casting the value, e.g. a date format like 'YYYYMMDD' or 'DD-MM-YYYY'."
                 },
+                "scale": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 15,
+                    "description": "Implied decimal places of a 'number' field written WITHOUT a decimal point, the way a COBOL PIC S9(7)V99 is: the last 'scale' digits are the fraction, so '0012345' at scale 2 reads as 123.45. A field written with its decimal point, or with no fraction at all, omits this. 'number' dimensions only.",
+                    "examples": [2]
+                },
                 "alias": {
                     "type": "string",
                     "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
