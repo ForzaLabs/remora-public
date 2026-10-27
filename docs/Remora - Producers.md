@@ -180,6 +180,7 @@ Notes:
 - Gaps are fine: filler columns you don't map simply have no dimension. Overlaps are fine too — a composite field and its subfields can both be declared.
 - Combine `position` with `format` to parse dates written as bare digits, as in `service_date` above. Day-of-year ("Julian") dates use `DDD`: `"format": "YYYYDDD"` reads `2007305` as 1 November 2007.
 - An amount written **without its decimal point** — `0012345` meaning `123.45`, the way a COBOL `PIC S9(7)V99` field is written — needs `scale`. See [Implied decimals](#implied-decimals).
+- An amount whose **sign is written in the last byte** — `123J` meaning `-1231`, the way a signed COBOL `DISPLAY` field is — needs `sign`. See [Written signs](#written-signs).
 - A dimension marked `sourceFilename` needs no `position`: it isn't in the line.
 - `discover` cannot be used on a `FIXED` producer — a positional layout can only come from the file's spec. Use `sample` to check that your positions line up.
 
@@ -787,6 +788,7 @@ Dimensions define the structure and characteristics of data fields in your produ
 | `mask` | ❌ | Data masking method | `hash`, `mask`, `crypt`, `random`, `seeded-random`, `none` |
 | `format` | ❌ | Source parse/cast format (e.g. a date format). `DDD` reads a day-of-year ("Julian") date | `"YYYYMMDD"`, `"DD-MM-YYYY"`, `"YYYYDDD"` |
 | `scale` | ❌ | Implied decimal places of a `number` written without a decimal point. See [Implied decimals](#implied-decimals). | `2` |
+| `sign` | ❌ | How a `number` written as text carries its sign. See [Written signs](#written-signs). | `overpunch`, `leading`, `trailing` |
 | `sourceFilename` | ❌ | Populate this dimension with the source file name (file producers only; one per producer) | `true`, `false` (default) |
 | `position` | ⚠️ | Where the value sits in the line, for `FIXED` (fixed-width) producers — required on every dimension of one, ignored elsewhere. See [Fixed-Width Files](#fixed-width-files-fixed). | `{ "start": 21, "length": 10 }`, `{ "start": 21, "end": 30 }` |
 | `position.after` | ❌ | Anchors the position to the end of an earlier group's actual occurrences instead of to the start of the line. See [Variable Occurrences](#variable-occurrences-and-anchoring). | `{ "after": "reimb", "length": 18 }` |
@@ -924,6 +926,35 @@ Flat files from mainframe and other legacy systems write an amount **without its
 - Not restricted to `FIXED`: a CSV column written the same way reads the same way.
 - Only text is decoded. A source that already hands Remora a number (JSON, SQL) hands over the value itself, so `scale` leaves it alone.
 - `synth` generates values with `scale` decimal places, so synthetic data fits the column it describes. `synth.decimals` overrides that.
+
+#### Written signs
+
+The same files rarely write a negative amount with a leading `-`. A signed COBOL `DISPLAY` field carries its sign in the **last byte**, which also holds the last digit: `-1231` is written `123J`, and `+1231` as `123A`. Read as-is, `Number("123J")` is `NaN` — the whole column arrives empty.
+
+`sign` says how the sign is written:
+
+| `sign` | The field holds | `-123` is written |
+|---|---|---|
+| `overpunch` | digits, the last byte carrying the sign as well as its digit: `{` and `A`-`I` positive, `}` and `J`-`R` negative | `12L` |
+| `leading` | an optional `+`/`-`, then digits | `-123` |
+| `trailing` | digits, then an optional `+`/`-` | `123-` |
+
+```json
+{
+  "name": "claim_amount",
+  "type": "number",
+  "scale": 2,
+  "sign": "overpunch",
+  "position": { "start": 21, "length": 10 }
+}
+```
+
+`000001234E` then reads as `123.45`, and `000001234N` as `-123.45`.
+
+- `number` dimensions only, and never inferred. Without `sign`, a letter in a numeric field is a malformed record rather than a sign — so a column whose feed uses overpunched signs has to say so, and one that does not keeps failing loudly on a stray letter.
+- `overpunch` reads overpunched signs only. A field whose conversion writes a real `+`/`-` is `leading` or `trailing` instead; a plain digit in the last byte is the unsigned form and reads as positive.
+- Combines with `scale`, which is applied after the sign is taken off: `0012345-` at `"scale": 2` is `-123.45`.
+- Like `scale`, it decodes text only, and is not restricted to `FIXED`.
 
 For synthetic data (`synth`), use `synth.decimals` to control how many decimal places generated `number` values get, so they load into the destination column. `decimals: 0` forces whole integers (fits an `integer` column); a positive value rounds to that many decimals:
 

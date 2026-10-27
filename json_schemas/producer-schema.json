@@ -221,6 +221,12 @@
                     "description": "Implied decimal places of a 'number' field written WITHOUT a decimal point, the way a COBOL PIC S9(7)V99 is: the last 'scale' digits are the fraction, so '0012345' at scale 2 reads as 123.45. A field written with its decimal point, or with no fraction at all, omits this. 'number' dimensions only.",
                     "examples": [2]
                 },
+                "sign": {
+                    "type": "string",
+                    "enum": ["overpunch", "leading", "trailing"],
+                    "description": "How a 'number' field written as text carries its sign, for layouts that don't simply write a leading '-'. 'overpunch': the last byte carries the sign as well as its digit, the way a signed COBOL DISPLAY field does, so -1231 is written '123J' ('{' and 'A'-'I' positive, '}' and 'J'-'R' negative, a plain digit positive). 'leading'/'trailing': a real '+' or '-' in the first or last position. 'number' dimensions only.",
+                    "examples": ["overpunch"]
+                },
                 "alias": {
                     "type": "string",
                     "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
