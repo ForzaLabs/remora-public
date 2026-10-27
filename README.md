@@ -50,6 +50,16 @@ ls "$(npm root -g)/@forzalabs/remora/json_schemas"
 
 Prefer those when the two disagree — and run `remora compile`, which validates against them.
 
+## Licence
+
+The schemas and documentation in this repository are free to use, copy, modify and redistribute for
+any purpose, commercial included, so that any editor, validator or generator can build on them. See
+[LICENSE](LICENSE).
+
+That grant covers this repository only. The Remora program itself is proprietary and licensed
+separately: free for non-commercial use, with any organisational or commercial use requiring a
+written licence from Forza Labs. Contact admin@forza-labs.com.
+
 ## Issues
 
 Bug reports and questions belong on the CLI package: [@forzalabs/remora](https://www.npmjs.com/package/@forzalabs/remora).

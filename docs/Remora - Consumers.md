@@ -1271,7 +1271,7 @@ How it behaves:
 
 ### **How a Record Ends**
 
-`lineEnding` is `"lf"` (the default) or `"crlf"`, and it ends **every** record, the last one included. A real positional feed picks one and holds it: NASCO POD files, for instance, are CRLF throughout.
+`lineEnding` is `"lf"` (the default) or `"crlf"`, and it ends **every** record, the last one included. A real positional feed picks one and holds it: a POD-style transaction feed, for instance, may be CRLF throughout.
 
 A file with **no terminator at all** — fixed record framing, `RECFM=FB`, where the record length alone says where one record ends — is not expressible here, and asking for it is the signal that what is needed is byte-mode framing rather than a line-based file. Remora does not write one.
 

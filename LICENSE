@@ -1,0 +1,41 @@
+Remora — schemas and documentation licence
+
+Copyright (c) 2026 Forza Labs LLC. All rights reserved.
+
+This repository contains the JSON Schemas and the prose documentation for Remora. It
+contains no part of the Remora program itself.
+
+1. Grant
+
+   You may use, copy, modify and redistribute the contents of this repository, for any
+   purpose including a commercial one, with or without modification, provided the
+   copyright notice above and this licence text are retained in any redistribution of a
+   substantial portion of them.
+
+   This grant exists so that the schemas can be referenced, vendored and built upon
+   freely — by editors, validators, generators and any other tooling that reads or writes
+   Remora configurations.
+
+2. No rights in the Remora software
+
+   This licence grants no right in the Remora program, which is distributed separately
+   under its own proprietary licence. See https://www.npmjs.com/package/@forzalabs/remora
+   and the LICENCE.md shipped with it. Commercial use of Remora requires a separate
+   written commercial licence; contact admin@forza-labs.com.
+
+3. Trademarks
+
+   This licence grants no right to use the names, logos or trademarks of Forza Labs LLC,
+   including "Forza Labs" and "Remora", beyond the attribution section 1 requires.
+
+4. No warranty and limitation of liability
+
+   THE CONTENTS OF THIS REPOSITORY ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, TITLE AND NONINFRINGEMENT. TO THE MAXIMUM EXTENT
+   PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL FORZA LABS LLC BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THESE CONTENTS OR THE USE OF OR OTHER
+   DEALINGS IN THEM.
+
+Contact: admin@forza-labs.com

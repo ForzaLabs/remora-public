@@ -396,7 +396,7 @@
                     "lineEnding": {
                         "type": "string",
                         "enum": ["lf", "crlf"],
-                        "description": "'FIXED' only. What ends every record, the last one included. Defaults to 'lf'. A real positional feed picks one and holds it — the NASCO POD files are CRLF on every line. A file with no terminator at all is fixed record framing (RECFM=FB) and is not expressible here."
+                        "description": "'FIXED' only. What ends every record, the last one included. Defaults to 'lf'. A real positional feed picks one and holds it — some are CRLF on every line. A file with no terminator at all is fixed record framing (RECFM=FB) and is not expressible here."
                     },
                     "layouts": {
                         "type": "object",
