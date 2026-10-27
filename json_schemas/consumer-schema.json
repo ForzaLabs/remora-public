@@ -328,6 +328,17 @@
                                 "type": "integer",
                                 "minimum": 1,
                                 "description": "Optional 1-based column the field is expected to start at. Not a second source of truth — the offsets always come from the widths — but an assertion that compile recomputes and fails on, so a forgotten filler is caught where it is written."
+                            },
+                            "scale": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 15,
+                                "description": "'number' fields only. Implied decimal places this field is WRITTEN with, the way a COBOL 'PIC S9(7)V99' is: the point is dropped and the last 'scale' digits are the fraction, so 123.45 at scale 2 is written '0012345'. The write-side counterpart of the producer dimension's 'scale'; where both say the same thing, a read and write back is byte-identical."
+                            },
+                            "sign": {
+                                "type": "string",
+                                "enum": ["overpunch", "leading", "trailing"],
+                                "description": "'number' fields only. How this field carries its sign, for the layouts that do not simply write a leading '-'. 'overpunch' puts it in the last byte (-1231 is written '123J', +1231 as '123A'); 'leading'/'trailing' write a real '+' or '-' in the first or last column of the field. A positive value is written in the form the mode declares, never as bare digits."
                             }
                         }
                     }

@@ -1155,6 +1155,8 @@ The file is exported with a `.txt` extension, to any file destination (local, S3
 | `position.nullFill` | ❌ | The single character a **null** field is filled with, for its full width. Defaults to a space for every type | `" "`, `"0"` |
 | `position.overflow` | ❌ | What a value longer than `width` does | `"fail"` (default), `"truncate"` |
 | `position.start` | ❌ | 1-based column the field is expected to start at. An assertion, not a second source of truth (see below) | `21` |
+| `position.scale` | ❌ | `number` fields only: implied decimal places the field is written with, the point dropped (see [How a Number Is Spelled](#how-a-number-is-spelled)) | `2` |
+| `position.sign` | ❌ | `number` fields only: how the field carries its sign, where it is not a plain leading `-` (see [How a Number Is Spelled](#how-a-number-is-spelled)) | `"overpunch"`, `"leading"`, `"trailing"` |
 
 Five rules decide what lands on the line:
 
@@ -1171,6 +1173,29 @@ Five rules decide what lands on the line:
 **A null is filled with spaces, not zeros, even on a number.** Zero-filling an empty numeric field writes `00`, which the receiver reads as the number zero — a real value where the record carried none. Set `nullFill` on the field, or per type in `defaults`, for a receiver that needs something else.
 
 **Carry a positional field through as a `string`.** A `number` dimension drops leading zeros — `"00"` read as a number is `0` — so writing it back takes `"align": "right"` with `"pad": "0"`, a rule you have to get right field by field. Declaring the producer dimension a `string` instead carries the characters through untouched.
+
+### **How a Number Is Spelled**
+
+The receivers that read by column also write their numbers by column: an amount **without its decimal point**, and a negative sign carried by a byte that also holds a digit. `position.scale` and `position.sign` are the write side of the producer dimension's `scale` and `sign` (see the Producers guide), and they mean the same things in the other direction:
+
+| Property | The field is written as | `-123.45` is written |
+| --- | --- | --- |
+| `"scale": 2` | digits only, the last 2 of them the fraction | `-12345` |
+| `"sign": "overpunch"` | digits, the last byte carrying the sign as well as its digit | `1234N` |
+| `"sign": "leading"` | a `+` or `-`, then digits | `-12345` |
+| `"sign": "trailing"` | digits, then a `+` or `-` | `12345-` |
+
+```json
+{ "key": "claim_amount", "position": { "width": 10, "scale": 2, "sign": "overpunch" } }
+```
+
+`-123.45` is then written `000001234N`, and `123.45` as `000001234E`.
+
+- `number` fields only, and both are optional on their own. A field writing a plain `-123.45` declares neither.
+- **A field declaring `sign` is a signed field, so a positive value is written in the form the mode declares** — `123A`, `+123`, `123+` — never as bare digits.
+- Declared on the output, not taken from the producer: the file you write is not the file you read, and a value can reach the output from anywhere. Declare the same `scale` and `sign` on both sides and a field read from a positional file is written back byte for byte.
+- The padding goes where the layout wants it. A `leading` sign keeps the first column and the fill goes between it and the digits (`-0001234`), which is where a COBOL `SIGN LEADING SEPARATE` field carries it.
+- `compile` prints both alongside the columns, since a wrong `scale` writes a plausible amount that is 10ⁿ off.
 
 ### **Column Order, Gaps and `start`**
 
@@ -1194,7 +1219,7 @@ FIXED layout of consumer "claims_export"
     start    end  width  field
         1     12     12  member_id
        13     20      8  service_date
-       21     30     10  amount
+       21     30     10  amount  (2 implied decimal(s), overpunch sign)
 ```
 
 Every problem with a layout is reported in one `compile` rather than one per run, so six fields missing a width come back as six lines. `run` and `verify` resolve the same layout before they read a producer, so a layout that does not add up fails in front of the run instead of after the whole dataset has been built.
