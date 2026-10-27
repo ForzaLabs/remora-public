@@ -177,7 +177,7 @@ Remora ships built-in healthcare/payer-quality code sets that are applied **auto
 
 Because `measure_code` and `measure_name` both bind to the built-in `hedis_measures` set, they are automatically correlated on each row — with no configuration.
 
-A built-in set is only applied when it can produce the dimension's declared `type`. A numeric surrogate key such as `heb_quality_gaps_measure_code_sk` matches `measure_code` by name, but HEDIS codes are not numbers, so the binding is skipped and the field is generated from its own type instead. An **explicit** `synth.codeSet` or `synth.allowedValues` that cannot produce the declared type is a configuration error and fails the run by name.
+A built-in set is only applied when it can produce the dimension's declared `type`. A numeric surrogate key such as `quality_gaps_measure_code_sk` matches `measure_code` by name, but HEDIS codes are not numbers, so the binding is skipped and the field is generated from its own type instead. An **explicit** `synth.codeSet` or `synth.allowedValues` that cannot produce the declared type is a configuration error and fails the run by name.
 
 ### **Overriding a built-in set**
 
