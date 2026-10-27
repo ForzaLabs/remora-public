@@ -200,6 +200,24 @@ Synthetic generation is fully deterministic: the same `--seed` always produces t
 
 ---
 
+## **Where the Output Goes**
+
+`synth` touches nothing real at either end. The producers are served from generated files instead of their sources, and the exports are written to a local folder — `remora/.synth/<consumer>/` by default, or wherever `--output` points — instead of each consumer's configured `exportDestination`.
+
+That is what lets you run it against the consumers you deploy. Their destinations are production buckets, shares and endpoints: unreachable from a development machine, and not somewhere fake rows belong, since a consumer with a fixed `exportName` would overwrite the live feed.
+
+```bash
+# Writes to remora/.synth/c_quality_gaps/, not to the consumer's destination
+npx @forzalabs/remora synth c_quality_gaps
+
+# Write somewhere else
+npx @forzalabs/remora synth c_quality_gaps --output ./tmp/fixtures
+```
+
+The export itself still runs in full — format conversion, header, field positions, file splitting, FIXED layouts — so the file you get is what the destination would have received, byte for byte. `move-file` actions on `onSuccess`/`onError` are the one thing skipped: they archive and delete the producers' real source files, which a synthetic run never read. `run-consumer` actions still fire, and the consumers they start are synthesized too.
+
+---
+
 ## **Code Set Schema Reference**
 
 | Property | Required | Description | Values |
@@ -263,6 +281,9 @@ npx @forzalabs/remora synth c_quality_gaps --records 500 --seed my-seed
 
 # Run every consumer tagged with a given project
 npx @forzalabs/remora synth --project my-project
+
+# Write the exports somewhere other than remora/.synth
+npx @forzalabs/remora synth c_quality_gaps --output ./tmp/fixtures
 ```
 
 Each generated row will pair `measure_code` with its matching `measure_name`, draw `gap_status` from your flat set, and pick `gender_code` from the inline list.

@@ -182,7 +182,8 @@ Notes:
 - An amount written **without its decimal point** — `0012345` meaning `123.45`, the way a COBOL `PIC S9(7)V99` field is written — needs `scale`. See [Implied decimals](#implied-decimals).
 - An amount whose **sign is written in the last byte** — `123J` meaning `-1231`, the way a signed COBOL `DISPLAY` field is — needs `sign`. See [Written signs](#written-signs).
 - A dimension marked `sourceFilename` needs no `position`: it isn't in the line.
-- `discover` cannot be used on a `FIXED` producer — a positional layout can only come from the file's spec. Use `sample` to check that your positions line up.
+- A feed unloaded from a mainframe has to be converted before any of this reads — ASCII, display digits, one record per line. See [Mainframe unloads](#mainframe-unloads).
+- `discover` cannot be used on a `FIXED` producer — a positional layout can only come from the file's spec. Use `sample` to check that your positions line up. If the spec is a COBOL copybook, [`import-copybook`](#importing-a-cobol-copybook) writes the whole producer from it.
 
 ### **Repeating Groups (OCCURS)**
 
@@ -215,7 +216,7 @@ The group expands into one dimension per (occurrence × child) when the project 
 | `position` | ✅ | Extent of **one** occurrence: `start` of the first, `length` per occurrence | `{ "start": 32, "length": 30 }` |
 | `occurs` | ❌ | Number of occurrences. Default `1`, max `1000`. An object when the count varies per line — see [Variable Occurrences](#variable-occurrences-and-anchoring) | `3` |
 | `indexFrom` | ❌ | First index used in generated names: `0` (default) or `1` | `1` |
-| `naming` | ❌ | Name template. Tokens `{group}`, `{index}`, `{field}`, `{Field}` (capitalized). `{index}` is required unless `occurs` is `1`. Default `{group}{index}{Field}` | `{group}_{index}_{field}` → `addr_0_street` |
+| `naming` | ❌ | Name template. Tokens `{group}`, `{index}`, `{field}`, `{Field}` (capitalized), plus `{index1}`…`{indexN}` inside a nested group. `{index}` is required unless `occurs` is `1`. Default `{group}{index}{Field}` | `{group}_{index}_{field}` → `addr_0_street` |
 
 Notes:
 
@@ -224,7 +225,41 @@ Notes:
 - `occurs: 1` is useful on its own: a group is then simply a way to **structure** a segment of the layout, and with `"naming": "{field}"` the children keep their own names.
 - Unpopulated occurrences read as `null`, exactly like any all-padding field.
 - A child position that doesn't fit inside one occurrence is rejected — that is the classic transcription slip, an absolute offset pasted where a relative one belongs.
-- Nested groups (a group inside a group) are **not supported yet** and are rejected with a message saying so. Declare the inner group as a sibling with its own absolute `position`.
+- Groups **nest**, the way a copybook's `OCCURS` clauses do — see [Nested groups](#nested-groups).
+
+### **Nested Groups**
+
+A copybook nests `OCCURS` clauses routinely — an address segment that repeats, each occurrence holding two phone slots that repeat in turn. A group's child may itself be a group, and the same two rules apply one level down: its `position` is the extent of **one** of its own occurrences, measured **relative to one occurrence of the group it sits in**.
+
+```json
+{
+  "name": "addr",
+  "position": { "start": 1, "length": 30 },
+  "occurs": 2,
+  "dimensions": [
+    { "name": "street", "type": "string", "position": { "start": 1, "length": 10 } },
+    {
+      "name": "phone",
+      "position": { "start": 11, "length": 10 },
+      "occurs": 2,
+      "dimensions": [
+        { "name": "area", "type": "string", "position": { "start": 1, "length": 3 } },
+        { "name": "num",  "type": "string", "position": { "start": 4, "length": 7 } }
+      ]
+    }
+  ]
+}
+```
+
+Each level names what the level below it generated, so the default template gives `addr0Street`, `addr0Phone0Area`, `addr0Phone0Num`, `addr0Phone1Area`, … `addr1Phone1Num` — ten dimensions at columns 1-10, 11-13, 14-20, 21-23, 24-30, then 31-40, 41-43, … 54-60.
+
+Notes:
+
+- Inside a nested group's `naming`, **`{index}` is that group's own occurrence** and `{index1}`…`{indexN}` reach N levels outward, for a template that wants the outer index somewhere of its own: `"naming": "{group}{index1}_{index}_{field}"` on `phone` above gives `phone0_1_area`.
+- All of a nested group's occurrences must fit inside **one** occurrence of the group it sits in. `phone` above takes columns 11-30 of a 30-character address, and a position that runs past the end is rejected.
+- `occurs` is capped at 1000 **per level**, so a group nested in another is bounded at the product.
+- A nested group repeats a **fixed** number of times: `occurs` as an object, and `emit`, belong to the outermost group only. A per-line count can only be read along the line, not inside another group's occurrence.
+- Everything else is unchanged: the whole tree flattens to plain positioned dimensions when the project loads, so nothing downstream knows a group was nested.
 
 ### **Occurrences as Rows**
 
@@ -376,6 +411,69 @@ A matching line shorter than `minLength` is dropped and logged at debug level (`
 | `equals` | ✅ | Marker value(s) to keep, compared against the trimmed marker | `"D"`, `["D", "E"]` |
 | `minLength` | ❌ | Shortest a valid line of this record type can be, in characters | `2400` |
 | `onLengthMismatch` | ❌ | What to do with a matching line that is too short | `"skip"` (default), `"fail"` |
+
+### **Mainframe Unloads**
+
+Remora does not connect to VSAM. A VSAM file is reached through z/OS access-method calls, not as a byte stream, so there is nothing at the other end of a connection to read. What Remora reads is the **unload**: the flat file an `IDCAMS REPRO` step writes, described by the COBOL copybook of the record it holds. Producing that unload, and converting it, belongs on the mainframe side of the handover — Remora's side starts at the file that arrives.
+
+**The unload has to arrive as ASCII display data.** That is a requirement of reading a mainframe feed, not a preference. Before the file leaves z/OS, a conversion step — the `DFSORT`/`OUTREC` job most shops already run, or the equivalent in whichever sort product is installed — has to do three things:
+
+- **Translate the record from EBCDIC to ASCII.** Remora reads the file as text and carries no EBCDIC codepage.
+- **Expand every `COMP-3` (packed decimal) and `COMP` (binary) field to display digits**, each at the DISPLAY width of its `PIC` clause. Packed decimal holds two digits per byte and binary holds no digits at all, so there are no characters at those columns for a positional read to address.
+- **Write one record per line**, newline-terminated, each record padded to its full width. `RECFM=FB` writes no separator between records and `RECFM=VB` prefixes each record with a 4-byte RDW; neither of those is a line.
+
+Nothing else about the record has to change, and nothing else should. An overpunched sign and an implied decimal point are ordinary characters once the record is ASCII, and Remora reads both as the copybook spells them — see [Implied decimals](#implied-decimals) and [Written signs](#written-signs). Ask for the layout itself to be left exactly as the copybook describes it: the columns are what the producer is written from, so a conversion that re-aligns, re-orders or trims fields makes the copybook wrong.
+
+**Positions are counted in characters**, everywhere in a `FIXED` producer. In a converted single-byte record a character is a byte and both agree with the copybook's offsets — which is why the conversion happens before the file is sent, rather than being described in the layout.
+
+If a feed arrives unconverted:
+
+| What arrives | What happens |
+| --- | --- |
+| A record still in EBCDIC | No column reads as itself: text fields hold unrelated characters and numeric ones fail on them. Sample a first delivery before trusting it. |
+| `RECFM=FB`, no newlines | The whole file reads as one very long line, so only the first record's columns land anywhere. |
+| `RECFM=VB`, no newlines | The same, and each record's four RDW bytes shift every position after them. |
+| A `COMP-3` or `COMP` field | `remora compile` fails, naming the dimension and the conversion the feed needs. [`import-copybook`](#importing-a-cobol-copybook) writes `"usage": "comp-3"` (or `"comp"`) on such a field for exactly that reason: once the conversion job expands it, delete `usage` and the producer compiles. |
+
+`COMP-1` and `COMP-2` (floating point) are not supported, converted or not: `import-copybook` refuses a copybook that declares one rather than writing a field that cannot be read.
+
+**What to ask for.** One request to the team that owns the job covers it — an `IDCAMS REPRO` unload of the file, converted to ASCII with `COMP-3` and `COMP` fields expanded to display digits, written as newline-delimited records of fixed length, together with the copybook that describes the record. With the copybook in hand, [`import-copybook`](#importing-a-cobol-copybook) writes the producer from it.
+
+### **Importing a COBOL Copybook**
+
+A fixed-width feed unloaded from a mainframe comes with a COBOL copybook, and the copybook is the only place the width, the implied decimals and the written sign of each field are stated. `import-copybook` reads it and writes the producer:
+
+```bash
+# Write remora/producers/p_orders.json from the copybook
+remora import-copybook ./layouts/ORDERS.cpy -n p_orders
+
+# Without -n, the producer is named after the copybook file ("ORDERS.cpy" -> "p_orders")
+remora import-copybook ./layouts/ORDERS.cpy
+```
+
+The parse is deterministic, never inferred: level numbers, `PIC` clauses, `USAGE`, `OCCURS` (fixed and `DEPENDING ON`) and `REDEFINES`. **Every `position` is computed from the PIC widths**, so no offset is transcribed by hand — which is the point of the command on a layout of several hundred fields.
+
+| Copybook | Producer |
+| --- | --- |
+| `PIC X(12)` | `"type": "string"`, `"position": { "length": 12 }` |
+| `PIC 9(8)` | `"type": "number"` |
+| `PIC S9(7)V99` | `"type": "number"`, `"scale": 2`, `"sign": "overpunch"` |
+| `PIC S9(5) SIGN IS TRAILING SEPARATE` | `"type": "number"`, `"sign": "trailing"`, one character wider |
+| `PIC ZZ,ZZ9.99` | `"type": "string"` — an edited picture holds its insertion characters, so the field is text |
+| `OCCURS 3` | a [repeating group](#repeating-groups-occurs), `"indexFrom": 1` so the names match the copybook |
+| `OCCURS 1 TO 10 DEPENDING ON ORD-COUNT` | `"occurs": { "max": 10, "min": 1, "from": "$ordCount" }`, and everything after it [anchored](#variable-occurrences-and-anchoring) |
+| `REDEFINES` | the first reading only; the alternates are named in the dimension's `description` |
+| `FILLER` | nothing — it carries width, not a value |
+
+Names are the copybook's own: `ORD-TOTAL-AMT` becomes `ordTotalAmt`, and a name two groups share is qualified with the group it sits in. Groups that do not repeat are flattened, since they structure the copybook rather than the record.
+
+Both source formats are read: a fixed-format copybook (sequence numbers in columns 1-6, an indicator in column 7, text in columns 8-72) and a free-format one. Comment lines are skipped.
+
+**The feed still has to arrive as display characters**, as every mainframe unload does — see [Mainframe unloads](#mainframe-unloads). A `COMP-3` or `COMP` field is emitted with its `usage` recorded (`"usage": "comp-3"`) and `remora compile` rejects it by name, so the conversion job expands the field; the `usage` property is then removed and the producer compiles.
+
+A clause the importer cannot read **fails, naming the copybook line**, rather than producing a layout that is nearly right: a field read from the wrong column holds a plausible value that no run and no validation can catch. `OCCURS DEPENDING ON` inside another repeating group, a `PIC` using `P`, `COMP-1`/`COMP-2`, level 66 `RENAMES` and a second record description in one copybook are all refused this way. Read each record type of a mixed file with its own producer and a [`recordSelector`](#mixed-record-types-hdt).
+
+The written producer points at a placeholder source and file: set `source` and `settings.fileKey`, then run `remora compile` and `remora sample` to check the positions against a real line.
 
 ### **File Pattern Matching**
 
@@ -789,11 +887,12 @@ Dimensions define the structure and characteristics of data fields in your produ
 | `format` | ❌ | Source parse/cast format (e.g. a date format). `DDD` reads a day-of-year ("Julian") date | `"YYYYMMDD"`, `"DD-MM-YYYY"`, `"YYYYDDD"` |
 | `scale` | ❌ | Implied decimal places of a `number` written without a decimal point. See [Implied decimals](#implied-decimals). | `2` |
 | `sign` | ❌ | How a `number` written as text carries its sign. See [Written signs](#written-signs). | `overpunch`, `leading`, `trailing` |
+| `usage` | ❌ | How the source system stores the field, as a copybook's `USAGE` clause declares it. Written by [`import-copybook`](#importing-a-cobol-copybook); `comp` and `comp-3` are rejected at compile | `display`, `comp`, `comp-3` |
 | `sourceFilename` | ❌ | Populate this dimension with the source file name (file producers only; one per producer) | `true`, `false` (default) |
 | `position` | ⚠️ | Where the value sits in the line, for `FIXED` (fixed-width) producers — required on every dimension of one, ignored elsewhere. See [Fixed-Width Files](#fixed-width-files-fixed). | `{ "start": 21, "length": 10 }`, `{ "start": 21, "end": 30 }` |
 | `position.after` | ❌ | Anchors the position to the end of an earlier group's actual occurrences instead of to the start of the line. See [Variable Occurrences](#variable-occurrences-and-anchoring). | `{ "after": "reimb", "length": 18 }` |
-| `dimensions` | ❌ | Makes this a repeating group (`FIXED` only): the fields that repeat, positioned relative to one occurrence. See [Repeating Groups](#repeating-groups-occurs). | see Repeating Groups |
-| `occurs` | ❌ | Occurrences of a repeating group. Default `1`, max `1000`; an object when the count varies per line | `3`, `{ "max": 36, "while": { ... } }` |
+| `dimensions` | ❌ | Makes this a repeating group (`FIXED` only): the fields that repeat, positioned relative to one occurrence. Groups nest — see [Repeating Groups](#repeating-groups-occurs) and [Nested Groups](#nested-groups). | see Repeating Groups |
+| `occurs` | ❌ | Occurrences of a repeating group. Default `1`, max `1000` per level; an object when the count varies per line, on the outermost group only | `3`, `{ "max": 36, "while": { ... } }` |
 | `indexFrom` | ❌ | First index used in the names a group generates | `0` (default), `1` |
 | `naming` | ❌ | Name template for the dimensions a group or `flags` generates | `"{group}_{index}_{field}"`, `"{field}_{flag}"` |
 | `emit` | ❌ | Whether a group's occurrences become columns (default) or one record each. See [Occurrences as Rows](#occurrences-as-rows). | `"columns"`, `"rows"` |
