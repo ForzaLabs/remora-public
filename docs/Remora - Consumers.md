@@ -1477,6 +1477,7 @@ Configure automated execution of consumers based on schedules, API calls, or que
 | `roleArn`, `roleSessionName`, `externalId` | STS AssumeRole settings (for `method: "arn"`) |
 | `deadLetterQueue` | Queue URL or name where a repeatedly failing message is parked (see [Failed messages](#failed-messages)) |
 | `maxReceiveCount` | Failed deliveries tolerated before the message stops being processed. Defaults to `"5"` |
+| `endpoint` | Base URL of an SQS-compatible server to use instead of AWS — e.g. `http://localhost:9324` for a local ElasticMQ in development. A `value` given as a queue name is built against it. Omit it to talk to AWS; `REMORA_SQS_ENDPOINT` sets the same thing for every queue |
 
 #### **Failed messages**
 

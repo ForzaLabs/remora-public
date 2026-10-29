@@ -538,6 +538,10 @@
                                         "type": "string",
                                         "pattern": "^[1-9][0-9]*$",
                                         "description": "How many failed deliveries are tolerated before the message stops being processed (for QUEUE triggers). Applies with or without a 'deadLetterQueue'. Defaults to '5'."
+                                    },
+                                    "endpoint": {
+                                        "type": "string",
+                                        "description": "Base URL of an SQS-compatible server to use instead of AWS (for QUEUE triggers), e.g. 'http://localhost:9324' for a local ElasticMQ. A queue given here as a name is built against this endpoint. Omit it to talk to AWS; the REMORA_SQS_ENDPOINT environment variable sets the same thing for every queue."
                                     }
                                 },
                                 "additionalProperties": {
