@@ -73,6 +73,7 @@ File-based producers work with local files or S3 storage, supporting various fil
 | `hasHeaderRow` | ❌ | Whether CSV/TXT has header row. For `FIXED` it defaults to `false` — set it to `true` only if the file starts with a line to skip | `true`, `false` |
 | `recordSelector` | ❌ | `FIXED`: read only the lines whose marker at a given position matches, optionally asserting a `minLength` | `{ "position": { "start": 1, "length": 1 }, "equals": "D", "minLength": 2400 }` |
 | `sheetName` | ❌ | Excel sheet name to read | `"Sheet1"`, `"Data"` |
+| `xmlRecordPath` | ❌ | XML: which element is one record. Omitted, Remora finds the repeating element itself — see [XML Files](#xml-files) | `"..claim"`, `"feed.claims.claim"` |
 | `compressionType` | ❌ | Decompress the source file before parsing | `"GZ"`, `"ZIP"`, `"TAR"` |
 | `startRow` | ❌ | Excel: 1-indexed row to start reading from | `1`, `3` |
 | `startColumn` | ❌ | Excel: 1-indexed column to start reading from | `1`, `2` |
@@ -130,9 +131,119 @@ File-based producers work with local files or S3 storage, supporting various fil
 ```json
 {
   "settings": {
-    "fileKey": "config.xml",
+    "fileKey": "accounts.xml",
     "fileType": "XML"
   }
+}
+```
+
+An XML file is read one record at a time, so its size is not a limit: a file far larger than memory
+reads the same way a small one does, and so does a `sample` of it.
+
+#### Which element is one record
+
+By default Remora works it out from the file: it reads until it sees the same element name twice at
+the same level under the root, and that element is the record. For the file below that is
+`<account>`, and the producer needs no setting at all.
+
+Set `xmlRecordPath` when that guess is wrong — a wrapper element that happens to repeat, the same
+tag name used at two levels — or when nothing repeats. It takes two forms:
+
+| Form | Matches |
+| --- | --- |
+| `..account` | an `<account>` element **wherever it sits**, at any depth |
+| `feed.accounts.account` | **only** that exact path, anchored at the root element |
+
+Steps are separated by dots, not slashes, and an anchored path starts with the **root element's own
+name**: for a file whose root is `<accounts>`, that is `accounts.account`. A plain `account` is
+anchored too, so it matches nothing unless `<account>` is itself the root — write `..account` to
+match it at any depth. A path that matches no element stops the run with an error naming the path;
+an unreadable file is never quietly read as an empty one.
+
+The same happens when the setting is omitted and nothing repeats in the first 4 MB: the read stops
+with an error asking for `xmlRecordPath`, rather than reading on. A file whose root holds a single
+record is read as that one record.
+
+#### What a record decodes to
+
+Given this file:
+
+```xml
+<accounts>
+    <account id="A-1" plan="pro">
+        <name>Alice Rossi</name>
+        <monthly_spend>1200.50</monthly_spend>
+        <address>
+            <city>Milan</city>
+            <region>Lombardy</region>
+        </address>
+        <tag>finance</tag>
+        <tag>vip</tag>
+        <price currency="EUR">12.50</price>
+    </account>
+</accounts>
+```
+
+each `<account>` becomes one record, which the producer's dimensions read **by key**:
+
+| Shape in the file | Key | What the dimension reads |
+| --- | --- | --- |
+| Attribute — `id="A-1"` | `@_id` | `A-1`. Address it with `"alias": "@_id"` |
+| Text-only element — `<name>Alice Rossi</name>` | `name` | `Alice Rossi` |
+| Nested element — `<address>…</address>` | `address` | the element as JSON text: `{"city":"Milan","region":"Lombardy"}` |
+| Tag repeated in the record — `<tag>` twice | `tag` | a JSON list: `["finance","vip"]` |
+| The same tag occurring **once** in a record | `tag` | the bare value, `finance` — a list only where the record repeats it |
+| Element with attributes **and** text — `<price currency="EUR">12.50</price>` | `price` | JSON text, the element's own text under `#text`: `{"@_currency":"EUR","#text":"12.50"}` |
+| Empty element — `<note/>` or `<note></note>` | `note` | the empty string |
+| An element this record does not carry | — | `null`, or the type's empty value if the dimension declares `nullable: false` |
+
+Four rules hold across all of them:
+
+- **Values arrive as text, and the dimension's declared `type` is what casts them.** Nothing is
+  guessed from the file, so `<code>007</code>` reaches a `string` dimension as `007` and not as `7`,
+  and `<amount>12.50</amount>` reaches a `number` dimension as `12.5`.
+- **Whitespace is trimmed** from both ends of every value. A newline *inside* a value is kept, and
+  the record stays whole around it.
+- **Entities and CDATA are decoded**: `&amp;` reads as `&`, and a `<![CDATA[…]]>` section reads as
+  its contents.
+- **Attributes come first** in the record, ahead of the child elements. Every read is by key, so
+  this only affects the order `discover` lists the fields in.
+
+#### Nested values are not addressable by path
+
+A dimension reads **one key** of the record. There is no dotted-path addressing, so
+`"alias": "address.city"` does not resolve — it names no key, and the column reads as `null`. Where
+a key holds a nested element or a repeated tag, the dimension gets the whole thing as JSON text, as
+in the table above, which keeps the value intact and re-parsable downstream instead of losing it.
+
+The same applies to `#text`: an element carrying both attributes and text is read whole, not as its
+text alone.
+
+#### Dimensions and heterogeneous files
+
+An XML file has no header, so the dimensions a producer declares are the record's shape. A dimension
+whose key is missing from the **first** record is named in a warning and read as missing from then
+on, which is what lets a feed whose records differ from each other be read at all. Check that
+warning when a column comes back entirely null — a typo'd dimension name looks exactly like an
+element the file does not have.
+
+A producer reading the file above:
+
+```json
+{
+  "settings": {
+    "fileKey": "accounts.xml",
+    "fileType": "XML",
+    "xmlRecordPath": "..account"
+  },
+  "dimensions": [
+    { "name": "account_id", "alias": "@_id", "type": "string", "pk": true },
+    { "name": "plan", "alias": "@_plan", "type": "string" },
+    { "name": "name", "type": "string" },
+    { "name": "monthly_spend", "type": "number" },
+    { "name": "address", "type": "string" },
+    { "name": "tag", "type": "string" }
+  ]
 }
 ```
 

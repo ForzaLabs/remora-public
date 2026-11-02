@@ -106,6 +106,10 @@
                     "type": "string",
                     "description": "For Excel files (.xls/.xlsx), specifies the name of the sheet to read data from. If not specified, the first sheet will be used."
                 },
+                "xmlRecordPath": {
+                    "type": "string",
+                    "description": "For XML files, the element that is one record, as a path: '..claim' matches that element at any depth, 'feed.claims.claim' matches only that exact path from the root. If omitted, the reader takes the first element that repeats under the root, so this is only needed when that is the wrong element or when nothing repeats."
+                },
                 "compressionType": {
                     "type": "string",
                     "enum": [
