@@ -72,6 +72,7 @@ File-based producers work with local files or S3 storage, supporting various fil
 | `delimiter` | ❌ | CSV delimiter character | `","`, `";"`, `"\t"` |
 | `hasHeaderRow` | ❌ | Whether CSV/TXT has header row. For `FIXED` it defaults to `false` — set it to `true` only if the file starts with a line to skip | `true`, `false` |
 | `recordSelector` | ❌ | `FIXED`: read only the lines whose marker at a given position matches, optionally asserting a `minLength` | `{ "position": { "start": 1, "length": 1 }, "equals": "D", "minLength": 2400 }` |
+| `trimValues` | ❌ | Whether values are trimmed of leading and trailing whitespace as they are read. Defaults to `true` everywhere but `JSON`/`JSONL`. See [Whitespace and padding](#whitespace-and-padding). | `true`, `false` |
 | `sheetName` | ❌ | Excel sheet name to read | `"Sheet1"`, `"Data"` |
 | `xmlRecordPath` | ❌ | XML: which element is one record. Omitted, Remora finds the repeating element itself — see [XML Files](#xml-files) | `"..claim"`, `"feed.claims.claim"` |
 | `jsonRecordPath` | ❌ | JSON: where the records sit inside one document. Omitted, Remora reads the document's own shape — see [JSON Files](#json-files) | `"entry[].resource"`, `"..resource"` |
@@ -744,6 +745,43 @@ A clause the importer cannot read **fails, naming the copybook line**, rather th
 
 The written producer points at a placeholder source and file: set `source` and `settings.fileKey`, then run `remora compile` and `remora sample` to check the positions against a real line.
 
+### **Whitespace and Padding**
+
+A value is trimmed of its leading and trailing whitespace as it is read. That is what a padded file
+means by a value: a `FIXED` field is filled out to its width, a `CSV` or `TXT` field carries the
+spaces the writer left around it, an Excel cell the ones the typist left, and an XML value the
+indentation of the document it sits in. `JSON` and `JSONL` are the exception — their values arrive
+typed, with no width to fill out, and are read exactly as written.
+
+Set `settings.trimValues` to `false` where the spaces are data, or `trim` on the one dimension that
+needs them:
+
+```json
+{
+  "settings": { "fileKey": "claims.dat", "fileType": "FIXED", "trimValues": false },
+  "dimensions": [
+    { "name": "claim_id", "type": "string", "position": { "start": 1, "length": 12 }, "trim": true },
+    { "name": "narrative", "type": "string", "position": { "start": 13, "length": 80 } }
+  ]
+}
+```
+
+Three things are worth knowing before turning it off:
+
+- **It applies to `string` dimensions only.** Padding around a number or a date belongs to whoever
+  wrote the field, never to the value, so those are always trimmed. Declaring `trim` on one is a
+  compile error rather than a setting that does nothing.
+- **An untrimmed `FIXED` field is never null.** A trimmed field of nothing but padding reads as a
+  missing value, and `nullable` and consumer validations treat it as one. Untrimmed, it reads as the
+  padding itself — nothing about it is interpreted.
+- **On a delimited file, trimming becomes the dimension's own business.** A quoted `CSV` value is
+  always read exactly as written, trimming or not. But once any dimension of the producer turns
+  trimming off, the row parser stops trimming the row, and each dimension that still wants it trims
+  its own value — a quoted one included.
+
+A sample, a preview and a run all read a value the same way, so `remora sample` shows what the run
+will produce.
+
 ### **File Pattern Matching**
 
 Use wildcards to process multiple files matching a pattern:
@@ -1157,6 +1195,7 @@ Dimensions define the structure and characteristics of data fields in your produ
 | `scale` | ❌ | Implied decimal places of a `number` written without a decimal point. See [Implied decimals](#implied-decimals). | `2` |
 | `sign` | ❌ | How a `number` written as text carries its sign. See [Written signs](#written-signs). | `overpunch`, `leading`, `trailing` |
 | `usage` | ❌ | How the source system stores the field, as a copybook's `USAGE` clause declares it. Written by [`import-copybook`](#importing-a-cobol-copybook); `comp` and `comp-3` are rejected at compile | `display`, `comp`, `comp-3` |
+| `trim` | ❌ | Whether this dimension's value is trimmed as it is read. Overrides the producer's `trimValues`. `string` dimensions only. See [Whitespace and padding](#whitespace-and-padding). | `true`, `false` |
 | `sourceFilename` | ❌ | Populate this dimension with the source file name (file producers only; one per producer) | `true`, `false` (default) |
 | `position` | ⚠️ | Where the value sits in the line, for `FIXED` (fixed-width) producers — required on every dimension of one, ignored elsewhere. See [Fixed-Width Files](#fixed-width-files-fixed). | `{ "start": 21, "length": 10 }`, `{ "start": 21, "end": 30 }` |
 | `position.after` | ❌ | Anchors the position to the end of an earlier group's actual occurrences instead of to the start of the line. See [Variable Occurrences](#variable-occurrences-and-anchoring). | `{ "after": "reimb", "length": 18 }` |

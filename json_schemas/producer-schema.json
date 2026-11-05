@@ -101,6 +101,10 @@
                     "type": "boolean",
                     "description": "For TXT files, specifies whether the file has a header row containing column names. Defaults to true. For FIXED files it defaults to false — set it to true only if the fixed-width file starts with a descriptive line that must be skipped."
                 },
+                "trimValues": {
+                    "type": "boolean",
+                    "description": "Whether values are trimmed of their leading and trailing whitespace as they are read, for every 'string' dimension of this producer. Defaults to what the file type does on its own: a FIXED, CSV, TXT, XLS or XML value is padded by whoever wrote it and is trimmed, a JSON/JSONL value arrives typed and is not. Set it to false for a feed whose spaces are data. A single dimension can override it either way with its own 'trim'."
+                },
                 "sheetName": {
                     "type": "string",
                     "description": "For Excel files (.xls/.xlsx), specifies the name of the sheet to read data from. If not specified, the first sheet will be used."
@@ -258,6 +262,10 @@
                 "nullable": {
                     "type": "boolean",
                     "description": "Declares whether this dimension is allowed to hold null/missing values. Defaults to true. A missing value (null, or the empty field a NULL is staged as) is kept as null; set this to false to get the type's own empty value instead (string -> \"\", number -> 0, boolean -> false; a datetime stays null, having no empty value). Use a consumer field 'required' validation to reject a missing value rather than fill it."
+                },
+                "trim": {
+                    "type": "boolean",
+                    "description": "Whether this dimension's value has its leading and trailing whitespace removed as it is read. Defaults to the producer's 'trimValues', and to the file type's own habit when that is not set either. 'string' dimensions only: padding in a number or a date belongs to the writer and never to the value, so any other type is trimmed whatever this says. Turning it off keeps the value exactly as the file holds it, which also means a FIXED field of nothing but padding reads as that padding rather than as null."
                 },
                 "classification": {
                     "type": "array",
