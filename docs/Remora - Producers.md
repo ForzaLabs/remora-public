@@ -74,6 +74,7 @@ File-based producers work with local files or S3 storage, supporting various fil
 | `recordSelector` | ❌ | `FIXED`: read only the lines whose marker at a given position matches, optionally asserting a `minLength` | `{ "position": { "start": 1, "length": 1 }, "equals": "D", "minLength": 2400 }` |
 | `sheetName` | ❌ | Excel sheet name to read | `"Sheet1"`, `"Data"` |
 | `xmlRecordPath` | ❌ | XML: which element is one record. Omitted, Remora finds the repeating element itself — see [XML Files](#xml-files) | `"..claim"`, `"feed.claims.claim"` |
+| `jsonRecordPath` | ❌ | JSON: where the records sit inside one document. Omitted, Remora reads the document's own shape — see [JSON Files](#json-files) | `"entry[].resource"`, `"..resource"` |
 | `compressionType` | ❌ | Decompress the source file before parsing | `"GZ"`, `"ZIP"`, `"TAR"` |
 | `startRow` | ❌ | Excel: 1-indexed row to start reading from | `1`, `3` |
 | `startColumn` | ❌ | Excel: 1-indexed column to start reading from | `1`, `2` |
@@ -103,6 +104,45 @@ File-based producers work with local files or S3 storage, supporting various fil
 }
 ```
 
+A JSON file is read one record at a time, so its size is not a limit: a document far larger than
+memory reads the same way a small one does, and so does a `sample` of it.
+
+#### Which value is one record
+
+With no setting, Remora reads the file for what it is:
+
+| The file | Reads as |
+| --- | --- |
+| An array at the root — `[{…},{…}]` | one record per entry |
+| Several values at the root, one per line (NDJSON in a `.json`) | one record per value |
+| A single object — a Bundle, an API envelope | **one record**, the whole document |
+
+Set `jsonRecordPath` to read a document's records out of it instead. It takes the same two forms
+`xmlRecordPath` does, over keys rather than elements:
+
+| Form | Matches |
+| --- | --- |
+| `entry[].resource` | the `resource` of every entry of the root's `entry` array |
+| `..resource` | a `resource` key **wherever it sits** below the root |
+
+An array is transparent to the path, so `entry` and `entry[]` address the same place and reading an
+array reads its entries, one record each. A path that matches nothing stops the run with an error
+naming the path; an unreadable file is never quietly read as an empty one.
+
+A single document is held while it is read, so one larger than 4 MB stops with an error asking for
+`jsonRecordPath` rather than reading on into memory. Name where its records sit and the size of the
+file stops mattering.
+
+```json
+{
+  "settings": {
+    "fileKey": "bundle.json",
+    "fileType": "JSON",
+    "jsonRecordPath": "entry[].resource"
+  }
+}
+```
+
 ### **JSON Lines (JSONL/NDJSON)**
 
 ```json
@@ -113,6 +153,119 @@ File-based producers work with local files or S3 storage, supporting various fil
   }
 }
 ```
+
+### **Nested Values and Repeating Levels**
+
+A `JSON`, `JSONL` or `XML` record is a document, not a row: the value you want often sits a level or
+two down. A dimension says where with `path`.
+
+```json
+{
+  "settings": { "fileKey": "claims.jsonl", "fileType": "JSONL" },
+  "dimensions": [
+    { "name": "claim_id",     "type": "string", "path": "id", "pk": true },
+    { "name": "patient_id",   "type": "string", "path": "patient.reference" },
+    { "name": "service_date", "type": "string", "path": "billablePeriod.start" }
+  ]
+}
+```
+
+| Rule | |
+| --- | --- |
+| Dots descend into objects | `patient.reference` reads the `reference` key of the `patient` object |
+| A `path` replaces `alias` | the path *is* the address |
+| No `path` | the dimension reads its own key (or its `alias`), exactly as it always has |
+| A path matching nothing | reads `null`, the way any missing value does — `nullable` covers it |
+| A path landing on an object or a list | the value arrives whole, as JSON text |
+| `[]` | marks a repeating level, and belongs only on a group (below) |
+
+A path is a **static location and nothing more**: no filters, no conditions, no computed steps.
+Anything computed belongs in a consumer field `transform`. `path` is refused at compile on a CSV,
+TXT, Excel, Parquet or FIXED producer, which address a value by column or by `position` instead.
+
+#### One document, many rows
+
+A document usually holds a list where the dataset wants a row each. A **group** — a dimension
+declaring its own `dimensions` — fans it out: its `path` ends in `[]`, the array's own length is how
+many records the document produces, and each child's `path` is read inside **one entry**.
+
+```json
+{
+  "name": "line",
+  "path": "item[]",
+  "emit": "rows",
+  "occurrenceField": "line_index",
+  "dimensions": [
+    { "name": "line_no",     "type": "number", "path": "sequence" },
+    { "name": "line_amount", "type": "number", "path": "net.value" }
+  ]
+}
+```
+
+A claim document carrying two items comes out as two records:
+
+```json
+{"claim_id":"CLM-1","patient_id":"Patient/7","line_index":0,"line_no":1,"line_amount":10.5}
+{"claim_id":"CLM-1","patient_id":"Patient/7","line_index":1,"line_no":2,"line_amount":4}
+```
+
+This is the same `emit: "rows"` a fixed-width group declares (see [Occurrences as
+Rows](#occurrences-as-rows)), located by a path instead of by a column, so what holds there holds
+here: the children keep their **own names**, every dimension outside the group **repeats** on each
+record, and `occurrenceField` names the generated index field — default `{group}Occurrence`,
+counted from `indexFrom`.
+
+Notes:
+
+- **One group per producer.** Two repeating levels would multiply their entries together: read the
+  second array with a producer of its own and join them in a consumer. A group inside a group is
+  refused for the same reason.
+- **The `[]` goes on the end of the group's path**, once — the group *is* the array.
+- **No `occurs`**: the array's length is the count, so a declared one could only disagree with the
+  document.
+- **Empty entries are dropped** by default, as they are in a fixed-width group. Set
+  `skipEmptyOccurrences: false` to keep them. A document whose array is missing or empty produces no
+  record at all.
+- A `lineCount` field still means the **source line**, so the records fanned out of one document
+  share it. Dataset row counts (`min_rows`/`max_rows`) count output records.
+- A child declaring no `path` reads its own key inside the entry, exactly as a dimension outside the
+  group reads its own key in the document.
+- An XML record carrying the repeated tag **once** stages it as the value rather than as a list of
+  one, and is read as a single entry — so one-line and two-line records read the same way.
+
+#### An array of plain values
+
+Where the entries are values rather than objects — a repeated text-only XML tag, a JSON array of
+strings — there is no key inside an entry to address. A child reads the entry **itself** with
+`"path": "."`:
+
+```xml
+<account id="A-1">
+  <tag>finance</tag>
+  <tag>vip</tag>
+</account>
+```
+
+```json
+{
+  "name": "tags",
+  "path": "tag[]",
+  "emit": "rows",
+  "occurrenceField": "tag_index",
+  "dimensions": [
+    { "name": "tag_value", "type": "string", "path": "." }
+  ]
+}
+```
+
+```json
+{"account_id":"A-1","tag_index":0,"tag_value":"finance"}
+{"account_id":"A-1","tag_index":1,"tag_value":"vip"}
+```
+
+`.` is only a path **inside** a fanned-out group, where the value it names is one entry. On a
+dimension reading the record it would name the whole record, and on the group itself it would name
+no array to fan out — both are refused at compile.
 
 ### **Excel Files**
 
@@ -209,12 +362,17 @@ Four rules hold across all of them:
 - **Attributes come first** in the record, ahead of the child elements. Every read is by key, so
   this only affects the order `discover` lists the fields in.
 
-#### Nested values are not addressable by path
+#### Addressing a value inside a record
 
-A dimension reads **one key** of the record. There is no dotted-path addressing, so
-`"alias": "address.city"` does not resolve — it names no key, and the column reads as `null`. Where
-a key holds a nested element or a repeated tag, the dimension gets the whole thing as JSON text, as
-in the table above, which keeps the value intact and re-parsable downstream instead of losing it.
+A dimension reads **one key** of the record unless it declares a `path`, which addresses a value
+further in: `"path": "address.city"` reads the `<city>` of the `<address>` element, and a repeated
+tag can be fanned out into one record each. It works on XML exactly as it does on JSON — see
+[Nested Values and Repeating Levels](#nested-values-and-repeating-levels).
+
+`alias` is still one key and never a path: `"alias": "address.city"` names no key and reads as
+`null`. Where a dimension declares no path, a key holding a nested element or a repeated tag gets
+the whole thing as JSON text, as in the table above, which keeps the value intact and re-parsable
+downstream instead of losing it.
 
 The same applies to `#text`: an element carrying both attributes and text is read whole, not as its
 text alone.
@@ -1463,6 +1621,8 @@ remora discover producer-name
 remora discover producer-name --replace
 ```
 
+A producer can be authored with **no dimensions at all** — `"dimensions": []`, which is what `create-producer` writes — and filled in by the first `remora discover`. Nothing to place first, nothing to delete afterwards. A producer that still declares none is refused when it is run or sampled, naming the command above.
+
 Where the fields come from depends on the source:
 
 - **File sources** (local, S3, Delta Share) have no schema to ask for, so discovery reads a sample of the data and infers each field's type from its values.
@@ -1503,7 +1663,7 @@ A column a SQL table declares as `NOT NULL` also gets `"nullable": false`, since
 remora discover producer-name --replace
 ```
 
-`--replace` rebuilds the dimension list from the source: a dimension the source has no field for is **dropped**, and a declared type the source disagrees with is **overwritten**. Everything hand-written on the dimensions goes with it, so this is for one situation — bootstrapping a producer created from the `create-producer` template, whose placeholder dimensions nothing else removes. It is also the only way to delete a dimension whose column is gone upstream.
+`--replace` rebuilds the dimension list from the source: a dimension the source has no field for is **dropped**, and a declared type the source disagrees with is **overwritten**. Everything hand-written on the dimensions goes with it, so this is for one situation — a column that is gone upstream, which a merge keeps and only a rewrite deletes. Bootstrapping does not need it: `create-producer` writes an empty `dimensions` list, and a plain `remora discover` fills it.
 
 Dimensions the source could never describe are kept even here: a [`sourceFilename`](#dimension-properties) dimension holds the name of the file it was read from, not a field of the data, so no discovery can speak for it.
 

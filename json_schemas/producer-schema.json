@@ -22,9 +22,8 @@
         },
         "dimensions": {
             "type": "array",
-            "description": "Dimensions for the producer",
-            "items": { "$ref": "#/definitions/dimension" },
-            "minItems": 1
+            "description": "Dimensions for the producer. May be left empty and filled in by 'remora discover', which reads them from the source; nothing can run or sample a producer that still declares none",
+            "items": { "$ref": "#/definitions/dimension" }
         },
         "settings": {
             "type": "object",
@@ -110,6 +109,11 @@
                     "type": "string",
                     "description": "For XML files, the element that is one record, as a path: '..claim' matches that element at any depth, 'feed.claims.claim' matches only that exact path from the root. If omitted, the reader takes the first element that repeats under the root, so this is only needed when that is the wrong element or when nothing repeats."
                 },
+                "jsonRecordPath": {
+                    "type": "string",
+                    "description": "For a JSON file holding ONE document with the records inside it (a Bundle, an API envelope), where the repeating record sits: 'entry[].resource', or '..resource' for that key at any depth. The JSON mirror of 'xmlRecordPath', and meaningless on a JSONL file, where a line is already one record. If omitted, a root array is read as its entries, several values at the root as one record each, and a single document as the one record it is.",
+                    "examples": ["entry[].resource"]
+                },
                 "compressionType": {
                     "type": "string",
                     "enum": [
@@ -139,7 +143,14 @@
                     "additionalProperties": false
                 }
             },
-            "additionalProperties": false
+            "additionalProperties": false,
+            "allOf": [
+                {
+                    "description": "A JSONL line is already one record, so there is nothing for 'jsonRecordPath' to pick out of it: it would silently read one of them.",
+                    "if": { "type": "object", "required": ["fileType", "jsonRecordPath"], "properties": { "fileType": { "const": "JSONL" }, "jsonRecordPath": {} } },
+                    "then": { "description": "A JSONL producer declares no 'jsonRecordPath': a line is already one record.", "not": { "type": "object", "required": ["jsonRecordPath"], "properties": { "jsonRecordPath": {} } } }
+                }
+            ]
         },
         "_version": {
             "type": "number",
@@ -235,6 +246,11 @@
                     "type": "string",
                     "description": "The SQL column or field key that corresponds to this dimension. If left empty, the column name is assumed to be the same as the dimension name."
                 },
+                "path": {
+                    "type": "string",
+                    "description": "'JSON'/'JSONL'/'XML' producers only: where this dimension's value sits inside the record. Dots descend into objects, so 'patient.reference' reads the 'reference' key of the 'patient' object. It replaces 'alias' where it is set. A dimension with no 'path' reads the record's own key (the alias, or the dimension name), exactly as before. A path that matches nothing reads as null, the way any missing value does. It is a static location and nothing more: anything computed stays a consumer field 'transform'. A '[]' marks a repeating level and belongs only on a group declaring \"emit\": \"rows\", which reads one record per entry of that array. Inside such a group a child may declare '.' to read the ENTRY ITSELF, which is how an array of plain values is read \u2014 a repeated text-only XML tag, or a JSON array of strings, holds no key for a child to address.",
+                    "examples": ["patient.reference", "billablePeriod.start"]
+                },
                 "pk": {
                     "type": "boolean",
                     "description": "Whether this is a primary key column or not"
@@ -280,7 +296,7 @@
                     "type": "array",
                     "minItems": 1,
                     "items": { "$ref": "#/definitions/dimension" },
-                    "description": "Makes this a repeating GROUP of fields (a COBOL OCCURS segment): the fields that repeat, each 'position' RELATIVE to one occurrence. The group's own 'position' is the extent of ONE occurrence, so its 'length' is the bytes per occurrence, not the whole group's span. Expanded into one dimension per (occurrence x child) when the config loads, so nothing downstream sees a group. A group declares no 'type' and produces no column of its own. Groups nest, the way a copybook's OCCURS clauses do: a child may be a group in turn, positioned RELATIVE to one occurrence of the group it sits in and with all of its own occurrences inside that one. A nested group repeats a fixed number of times and cannot declare 'emit'. FIXED producers only."
+                    "description": "Makes this a repeating GROUP of fields (a COBOL OCCURS segment): the fields that repeat, each 'position' RELATIVE to one occurrence. The group's own 'position' is the extent of ONE occurrence, so its 'length' is the bytes per occurrence, not the whole group's span. Expanded into one dimension per (occurrence x child) when the config loads, so nothing downstream sees a group. A group declares no 'type' and produces no column of its own. Groups nest, the way a copybook's OCCURS clauses do: a child may be a group in turn, positioned RELATIVE to one occurrence of the group it sits in and with all of its own occurrences inside that one. A nested group repeats a fixed number of times and cannot declare 'emit'. On a key-addressed producer (JSON, JSONL, XML) a group is located by 'path' instead: the path carries a '[]', the array's own length is the count, and each child's 'path' is relative to ONE entry. Such a group always declares \"emit\": \"rows\" and nests no further."
                 },
                 "occurs": {
                     "description": "How many times a group's fields repeat. An integer when every line has the same count — default 1, so a group is also usable purely to structure a non-repeating segment. An object when the count VARIES line by line: the group still generates 'max' columns (a line with fewer reads them as null), and everything after it must be anchored with 'position.after' because the group's span differs per line. The limit of 1000 applies per level, so a nested group is bounded at the product. A nested group takes the integer form only.",
@@ -329,7 +345,7 @@
                 "emit": {
                     "type": "string",
                     "enum": ["columns", "rows"],
-                    "description": "What a group's occurrences become. 'columns' (default) generates one dimension per (occurrence x child), so one line stays one record. 'rows' fans the line out to one record PER OCCURRENCE: the children keep their own names, every dimension outside the group repeats on each record, and a generated field carries the occurrence index. At most one group per producer may declare it."
+                    "description": "What a group's occurrences become. 'columns' (default) generates one dimension per (occurrence x child), so one line stays one record. 'rows' fans the line out to one record PER OCCURRENCE: the children keep their own names, every dimension outside the group repeats on each record, and a generated field carries the occurrence index. At most one group per producer may declare it. A group located by 'path' always fans out, one record per entry of its array, so 'rows' is the only value it may declare: a document holds no count to generate a fixed set of columns from."
                 },
                 "skipEmptyOccurrences": {
                     "type": "boolean",
@@ -467,6 +483,14 @@
                     "if": { "required": ["dimensions"], "properties": { "dimensions": {} } },
                     "then": { "not": { "required": ["type"], "properties": { "type": {} } } },
                     "else": { "required": ["type"], "properties": { "type": {} } }
+                },
+                {
+                    "description": "'path' and 'position' are two placements of one value, and which of them won would depend on the file type: a key-addressed record is addressed by 'path', a fixed-width line by 'position'.",
+                    "not": { "type": "object", "required": ["path", "position"], "properties": { "path": {}, "position": {} } }
+                },
+                {
+                    "description": "A group located by 'path' repeats as many times as its array is long, so a declared 'occurs' could only disagree with the document.",
+                    "not": { "type": "object", "required": ["path", "occurs"], "properties": { "path": {}, "occurs": {} } }
                 }
             ]
         }
@@ -478,6 +502,23 @@
         "settings"
     ],
     "additionalProperties": false,
+    "allOf": [
+        {
+            "description": "'path' addresses a value INSIDE a record, which only the key-addressed file types (JSON, JSONL, XML) have. A columnar or positional file is addressed by column or by position — FIXED declares 'position' for exactly this.",
+            "if": {
+                "type": "object",
+                "required": ["settings"],
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "required": ["fileType"],
+                        "properties": { "fileType": { "enum": ["CSV", "TXT", "XLS", "XLSX", "PARQUET", "FIXED"] } }
+                    }
+                }
+            },
+            "then": { "properties": { "dimensions": { "type": "array", "items": { "type": "object", "description": "A dimension of a columnar or positional producer declares no 'path': its records have no inside to address, so a column or a position is the whole mapping.", "not": { "type": "object", "required": ["path"], "properties": { "path": {} } } } } } }
+        }
+    ],
     "examples": [
         {
             "name": "CustomerData",

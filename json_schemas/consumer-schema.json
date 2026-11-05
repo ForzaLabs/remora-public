@@ -291,6 +291,16 @@
                         "type": "string",
                         "description": "If set, this field will be added as new to the consumer dataset and will be a copy of the specified field. Use the alias if set, otherwise the key. The source field should come before this field in the fields list."
                     },
+                    "path": {
+                        "type": "string",
+                        "description": "'JSON'/'API' output only: where this field's value sits in the exported document. Dots make nested objects ('patient.reference') and each '[]' is one level of repetition, filled from the records of the output's 'groupBy' ('item[].sequence'). A field with no 'path' is written at top level under its exported name, which is what a JSON output has always written. It is a static location and nothing more: anything computed stays a field 'transform'."
+                    },
+                    "groupConflict": {
+                        "type": "string",
+                        "enum": ["fail", "first"],
+                        "description": "'JSON'/'API' output only, and only on a grouped output: what happens when the records of one group disagree on this field's value. A path without a '[]' claims the value is constant within the group of its own level, so the default 'fail' stops the run naming the field, the group key and both values. 'first' opts out for a value that genuinely varies and is meant to — a start date taken from the first line is an aggregation, said here in place rather than across every other field. Rejected on a field written once per record (the deepest '[]' level), which has no group to disagree within.",
+                        "default": "fail"
+                    },
                     "position": {
                         "type": "object",
                         "description": "'FIXED' output only, and required on every visible field of one: where this field sits on the positional line and how its value is filled out to that width. Column order is field order and the offsets are computed from the widths, so no column number is transcribed by hand. A value longer than 'width' fails the run rather than being cut.",
@@ -387,6 +397,17 @@
                     "omitNull": {
                         "type": "boolean",
                         "description": "'JSON'/'API' only. Omits the fields whose value is null from each exported record instead of writing them as \"field\": null — worth it on a wide, sparse record. Records then legitimately differ in shape, so it is rejected on a positional format (CSV/TXT/PARQUET), and on a JSON output whose consumer also writes one, since every output is serialized from the same record."
+                    },
+                    "groupBy": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "description": "'JSON'/'API' only. The consumer field key(s) several records collapse onto, outermost first — one key per '[]' level the fields' paths declare, by the name the field is exported under. The first identifies the document, each later one an intermediate array level, and the deepest array gets one entry per record. Without it every record is its own document, which is what a JSON output has always written. The key count and the deepest path's '[]' count must agree, which compile checks.",
+                        "examples": [["claim_id", "line_no"]]
+                    },
+                    "envelope": {
+                        "$ref": "#/definitions/outputEnvelope"
                     },
                     "recordLength": {
                         "type": "integer",
@@ -898,6 +919,28 @@
     ],
     "additionalProperties": false,
     "definitions": {
+        "outputEnvelope": {
+            "type": "object",
+            "description": "'JSON'/'API' only. Wraps the whole file in one literal document — a Bundle rather than one document per line. Without it the file is one document per line, which is what a JSON output writes today. A split writes one complete envelope per file.",
+            "additionalProperties": false,
+            "required": ["document", "at"],
+            "properties": {
+                "document": {
+                    "type": "object",
+                    "description": "The literal wrapper, written as it stands. The value \"$count\" is replaced by the number of documents in the file, which is known before a byte is written — and so can't be combined with a split of any kind, where one file holds a share nobody has counted yet.",
+                    "minProperties": 1
+                },
+                "at": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Where each collapsed document is placed inside the wrapper, written as a field 'path': dots make objects and the '[]' is the level each document becomes one entry of, e.g. 'entry[].resource'. Exactly one '[]', since every document is one entry of one repeating level."
+                },
+                "with": {
+                    "type": "object",
+                    "description": "Keys written beside each document at that level, for the per-entry metadata a Bundle carries. Only 'groupBy' values are in scope, as \"$key\", and only those whose field path carries no '[]': the records are gone by then, and a key inside a repeating level has one value per entry."
+                }
+            }
+        },
         "fixedFieldFill": {
             "type": "object",
             "description": "How a value is filled out to the width of its fixed-width field, set once for every field of one type. A field's own 'position' wins where both set the same rule.",

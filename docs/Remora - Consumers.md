@@ -202,6 +202,8 @@ Fields define which data columns to include in the consumer output and how to tr
 | `copyFrom` | ❌ | Add a new field that is a value copy of an earlier field (copies the value *before* that field's transformations) | `"amount"`, `"Sale Amount"` |
 | `lineCount` | ❌ | Populate the field with the 1-based source line number of each record (consistent across parallel workers) | `true`, `false` |
 | `position` | ⚠️ | `FIXED` output only, and required on every visible field of one: the columns this field occupies and how its value is filled out to them (see [FIXED Output](#fixed-output)) | `{ "width": 10, "start": 21 }` |
+| `path` | ❌ | `JSON`/`API` output only: where this field's value sits in the exported document. Dots make objects, each `[]` is one repeating level (see [Nested Documents](#nested-documents)) | `"patient.reference"`, `"item[].net.value"` |
+| `groupConflict` | ❌ | `JSON`/`API` output only, and only on a grouped output: what happens when the records of one group disagree on this field's value. Defaults to failing the run | `"fail"` (default), `"first"` |
 
 A field's **output name** is its `alias` when it has one and its `key` otherwise. Two fields resolving to the same output name are rejected at `compile`: a record is keyed by that name, so a collision never failed at run time — one field simply overwrote the other.
 
@@ -980,6 +982,8 @@ consumer over the same producers.
 | `delimiter` | ❌ | Field delimiter, only used for `TXT` output (defaults to a tab). Ignored by every other format, `PARQUET` included, and rejected on `FIXED`, which has no delimiter at all | `"\t"`, `";"` |
 | `header` | ❌ | `CSV`/`TXT` only: write the field names as the first line of each exported file (see [The Header Line](#the-header-line)). Rejected on `PARQUET`, which carries its own schema, and on `FIXED`, which has no room for one | `true` (default), `false` |
 | `omitNull` | ❌ | `JSON`/`API` only: leave out the fields whose value is `null` (see [Omitting Null Fields](#omitting-null-fields)) | `true`, `false` (default) |
+| `groupBy` | ❌ | `JSON`/`API` only: the keys several records collapse onto, one per `[]` level the field paths declare, outermost first (see [Nested Documents](#nested-documents)) | `["claim_id", "line_no"]` |
+| `envelope` | ❌ | `JSON`/`API` only: wrap the whole file in one literal document — a Bundle rather than one document per line (see [Wrapping the File in One Bundle](#wrapping-the-file-in-one-bundle)) | Envelope block |
 | `recordLength` | ❌ | `FIXED` only: the declared length of one record, which `compile` checks the field widths sum to (see [FIXED Output](#fixed-output)) | `196` |
 | `defaults` | ❌ | `FIXED` only: the fill rules every field of one dimension type takes unless its own `position` overrides them | `{ "number": { "pad": "0" } }` |
 | `lineEnding` | ❌ | `FIXED` only: what ends every record, the last one included | `"lf"` (default), `"crlf"` |
@@ -1025,6 +1029,233 @@ Records then legitimately differ in shape from one another, which is why it appl
 
 - On `CSV`/`TXT`/`FIXED`/`PARQUET` it is **rejected**, not ignored — a positional column can't be missing from a row, and a parquet row group declares every column up front.
 - Only `null` is dropped. An empty string, a `0` and a `false` are values, and are exported.
+
+### **Nested Documents**
+
+A `JSON` or `API` output writes one flat record per line. Two properties change that, and a consumer declaring neither writes exactly what it has always written:
+
+- a field's **`path`** says where its value sits inside a document, instead of at top level under its own name;
+- the output's **`groupBy`** collapses several records into **one** document, so a repeating level can be filled from them.
+
+```json
+{
+  "fields": [
+    { "key": "resourceType", "fixed": true, "default": "Claim", "path": "resourceType" },
+    { "key": "claim_id", "path": "id" },
+    { "key": "patient_id", "path": "patient.reference", "transform": { "prepend": "Patient/" } },
+    { "key": "line_no", "path": "item[].sequence" },
+    { "key": "adj_amount", "path": "item[].adjudication[].amount.value" },
+    { "key": "service_date", "path": "billablePeriod.start", "groupConflict": "first" }
+  ],
+  "outputs": [
+    {
+      "format": "JSON",
+      "exportDestination": "s3-bucket",
+      "exportName": "claims",
+      "groupBy": ["claim_id", "line_no"]
+    }
+  ]
+}
+```
+
+There is no new output format and no new resource. Nesting is a property of the fields, the way `position` is for `FIXED`, so it reaches the `API` output for free.
+
+### **What a `path` Spells**
+
+A path is a **static location and nothing else**: no filter, no condition, no computed segment. Dots make objects, each `[]` is one level of repetition, and the document's skeleton is derived from the paths rather than declared anywhere.
+
+| Path | What it writes |
+| --- | --- |
+| no `path` | the value at top level under the field's output name — what a `JSON` output has always written |
+| `a.b.c` | nested objects, no repetition |
+| `item[].sequence` | one `item` entry per record of that level's group |
+| `item[].adjudication[].amount.value` | one array level per `[]`, outermost first; the deepest is one entry per record |
+| `name.given[]` | a path **ending** in `[]` collects the values themselves, not objects |
+
+Keys come out in **field declaration order** at every level, a `hidden` field is absent, and `omitNull` applies as it does elsewhere — it also leaves out an object that ends up with no keys at all rather than writing `{}`.
+
+Anything computed stays a field `transform`. A prefix, a cast, a concatenation all already exist and keep working, which is why a path never needs an expression of its own.
+
+A constant is an ordinary `fixed` field with a `default` and a `path`, so it is visible to `compile`, to the lineage and to `remora ui-preview` like every other field.
+
+### **Grouping Records into One Document**
+
+`groupBy` carries **one key per `[]` level, outermost first**. The first key identifies the document, each later one an intermediate array level, and the deepest array always takes one entry per record.
+
+So `"groupBy": ["claim_id", "line_no"]` over the fields above reads: a document per `claim_id`, an `item` per `line_no`, an `adjudication` per record. The two counts must agree, and `compile` says so when they do not.
+
+Keys are the field's **output name** — the alias where one is set — and they are compared as text. A null and an empty string key the same group, as they do for `distinctOn` and `split.by`.
+
+**Two arrays at the same depth share that depth's key.** `item[]` and `note[]` are filled from the same records, so they cannot have independent cardinality: a record set carrying both is their cross product. Independent collections need a second consumer, because the input is flat.
+
+**A path is constant within the group of its own level.** `id` is one value per `claim_id`, `item[].sequence` one value per `claim_id` + `line_no`. That is the author's claim about cardinality rather than a hint, so it is checked: a record that disagrees **fails the run**, naming the field, the group key and both values. That means the configuration is wrong — the path wants a `[]`, or `groupBy` is too coarse — and a claim carrying another claim's patient is a plausible-looking claim.
+
+`"groupConflict": "first"` on the field opts out, for the value that genuinely varies and is meant to:
+
+```json
+{ "key": "service_date", "path": "billablePeriod.start", "groupConflict": "first" }
+```
+
+A start date taken from the first line is an aggregation, and this says so in place. It sits on the field rather than on the output so that one aggregating field does not disarm the check across the other forty. "First" is the first record read, which the engine's ordering keeps stable.
+
+**`limit` counts documents** on a grouped consumer — `remora run <name> -l 10` returns ten documents, not ten records. For the same reason a grouped run reads its source whole: a limit pushed down to the source would cut a group in half and ship a document missing the lines it never read.
+
+### **Wrapping the File in One Bundle**
+
+Without an envelope the file is **one document per line** (NDJSON), which is what a `JSON` output writes today. An `envelope` wraps the whole file in one literal document instead:
+
+```json
+{
+  "outputs": [
+    {
+      "format": "JSON",
+      "exportDestination": "s3-bucket",
+      "exportName": "claims",
+      "groupBy": ["claim_id", "line_no"],
+      "envelope": {
+        "document": { "resourceType": "Bundle", "type": "batch", "total": "$count", "entry": [] },
+        "at": "entry[].resource",
+        "with": { "fullUrl": "urn:uuid:$claim_id" }
+      }
+    }
+  ]
+}
+```
+
+| Property | Meaning |
+| --- | --- |
+| `document` | The literal wrapper, written as it stands. `"$count"` as a value becomes the number of documents in the file. |
+| `at` | Where each collapsed document is placed, spelled as a `path`. Exactly one `[]`: every document is one entry of one repeating level. |
+| `with` | Keys written **beside** each document at that level, for the per-entry metadata a Bundle carries. |
+
+Only `groupBy` values are in scope in `with`, as `$key`, and only those whose field path carries no `[]` — the records are gone by the time the wrapper is written, and a key inside a repeating level has one value per entry rather than one per document. A value that is nothing but the token keeps the group value's own type; one standing inside a longer string (`"urn:uuid:$claim_id"`) comes out as text.
+
+The wrapper may declare the entries' key itself as an empty array, which is how it fixes where they sit among its own keys.
+
+**A split writes one complete envelope per file**, so each file is a whole Bundle — half a JSON document is not a smaller JSON document. A dataset with no document at all is written as an empty wrapper rather than an empty file. `"$count"` is the one thing a split cannot have: one file's share of the documents is not known before that file is written.
+
+### **What a Document Output Cannot Declare**
+
+All of it is knowable from the configuration, so all of it is refused by `remora compile` rather than found part-way through a run with half a file already written:
+
+| Rejected | Why |
+| --- | --- |
+| `path`, `groupConflict`, `groupBy` or `envelope` on a `CSV`, `TXT`, `FIXED` or `PARQUET` output | a positional or columnar file holds one flat record per line, not a document |
+| a `groupBy` whose length is not the deepest path's `[]` count | the levels and their keys must agree, or an array level has no key to break on |
+| a `[]` with no `groupBy` | it would repeat exactly once, every time |
+| a `groupBy` key that names no field of the consumer | the same rule `split.by` follows |
+| a `groupConflict` on a field at the deepest `[]` level | that level is written once per record, so it has nothing to conflict with |
+| a `groupConflict` on an output that declares no `groupBy` | every record is its own document, so there is no group for values to disagree within |
+| two paths that collide, such as `a` and `a.b` | one of them would be overwritten, and which one depends on field order |
+| a path on a wildcard or pattern key | every matched column would land on that one place |
+| a path that is no location at all — empty, an empty key between two dots, a stray bracket | `[]` marks a repeating level and goes at the end of a key, once |
+| `split.by` on a grouped output | it buckets on the value of a flat field and a document has none. `split.maxFileSizeGb` counts bytes and works unchanged |
+| `"$count"` together with any split | one file's share of the documents is not known before that file is written |
+| an envelope `at` that does not carry exactly one `[]` | a document is one entry of one repeating level, and two levels name no entry |
+| a `with` on an `at` that ends in `[]` | the document **is** the entry there, so there is nothing to write beside it |
+| a `$key` in `with` that is no `groupBy` key, or one written inside a `[]` | the records are gone, and a key inside a repeating level has one value per entry |
+
+### **Worked Example: a FHIR Claim Feed**
+
+A claim feed arrives flat: one record per adjudication of one line of one claim, with the claim's own values repeated on every record.
+
+```json
+{"claim_id":"CLM-0001","patient_id":"PAT-0002","claim_status":"active","service_date":"2026-03-05","line_no":1,"product_code":"SRV-108","line_amount":92.25,"adj_category":"eligible","adj_amount":30.75}
+```
+
+FHIR wants it nested, and a FHIR resource is **configuration here, not a concept the engine knows**: there is no resource type, no terminology and no profile validation anywhere in the pipeline. What follows is an ordinary consumer.
+
+**One resource per line** (`application/fhir+ndjson`):
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/ForzaLabs/remora-public/refs/heads/main/json_schemas/consumer-schema.json",
+  "name": "fhir-claims-ndjson",
+  "description": "The flat claim feed as one FHIR Claim resource per line.",
+  "producers": [{ "name": "claim-feed" }],
+  "fields": [
+    { "key": "resourceType", "fixed": true, "default": "Claim", "path": "resourceType" },
+    { "key": "claim_id", "path": "id" },
+    { "key": "claim_status", "path": "status" },
+    { "key": "patient_id", "path": "patient.reference", "transform": { "prepend": "Patient/" } },
+    { "key": "service_date", "path": "billablePeriod.start", "groupConflict": "first" },
+    { "key": "line_no", "path": "item[].sequence" },
+    { "key": "product_code", "path": "item[].productOrService.text" },
+    { "key": "line_amount", "path": "item[].net.value" },
+    { "key": "line_currency", "fixed": true, "default": "EUR", "path": "item[].net.currency" },
+    { "key": "adj_category", "path": "item[].adjudication[].category.text" },
+    { "key": "adj_amount", "path": "item[].adjudication[].amount.value" },
+    { "key": "adj_currency", "fixed": true, "default": "EUR", "path": "item[].adjudication[].amount.currency" }
+  ],
+  "outputs": [
+    {
+      "format": "JSON",
+      "exportDestination": "claims-bucket",
+      "exportName": "fhir-claims",
+      "groupBy": ["claim_id", "line_no"]
+    }
+  ],
+  "_version": 1
+}
+```
+
+One line of the exported file, indented here to be readable:
+
+```json
+{
+  "resourceType": "Claim",
+  "id": "CLM-0001",
+  "status": "active",
+  "patient": { "reference": "Patient/PAT-0002" },
+  "billablePeriod": { "start": "2026-03-05" },
+  "item": [
+    {
+      "sequence": 1,
+      "productOrService": { "text": "SRV-108" },
+      "net": { "value": 92.25, "currency": "EUR" },
+      "adjudication": [
+        { "category": { "text": "submitted" }, "amount": { "value": 19.75, "currency": "EUR" } },
+        { "category": { "text": "eligible" }, "amount": { "value": 30.75, "currency": "EUR" } }
+      ]
+    }
+  ]
+}
+```
+
+**The same resources as one Bundle.** Only the output changes — the fields are the ones above:
+
+```json
+{
+  "outputs": [
+    {
+      "format": "JSON",
+      "exportDestination": "claims-bucket",
+      "exportName": "fhir-claims-bundle",
+      "groupBy": ["claim_id", "line_no"],
+      "envelope": {
+        "document": { "resourceType": "Bundle", "type": "batch", "total": "$count", "entry": [] },
+        "at": "entry[].resource",
+        "with": { "fullUrl": "urn:uuid:$claim_id" }
+      }
+    }
+  ]
+}
+```
+
+The file is then one document:
+
+```json
+{
+  "resourceType": "Bundle",
+  "type": "batch",
+  "total": 40,
+  "entry": [
+    { "fullUrl": "urn:uuid:CLM-0001", "resource": { "resourceType": "Claim", "id": "CLM-0001" } }
+  ]
+}
+```
+
+A Bundle mixing a `Claim` with its `Patient` and `Coverage` is a different thing and is not expressible here: it needs generated ids resolving between resources. One consumer writes one repeating resource type.
 
 ### **CSV Output**
 
@@ -1724,6 +1955,7 @@ A row whose key is **null** goes to `_null` and one whose key is **empty** goes 
 
 - **1000 files** per consumer. Splitting on a field with one value per row (a customer id, an order number) fails the run with a named error instead of filling a directory.
 - An **API** output cannot be split — a response is not a file.
+- A **grouped** output (one that declares `groupBy`) cannot be split by `by`: that keys off the value of a flat field and a document has none. The size cap works unchanged, and a split output carrying an [envelope](#wrapping-the-file-in-one-bundle) writes one complete envelope per file.
 - A **hidden** field cannot be a split key when the consumer writes a positional format (`CSV`, `TXT`, `PARQUET`): the file never carries that column.
 - On a `PARQUET` output, `maxFileSizeGb` caps the **internal staged bytes, not the parquet bytes**. Each file is encoded and compressed after it has been split, so the exported files land comfortably under the cap rather than at it. The cap is there to bound what a destination is asked to take in one object, and rotating a parquet file after it was compressed would mean rewriting it.
 
