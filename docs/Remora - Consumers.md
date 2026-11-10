@@ -1780,6 +1780,18 @@ Example authenticating via an assumed IAM role instead of static keys:
 }
 ```
 
+### **When the Worker Is Busy**
+
+A worker shares one thread and memory budget across every run. A run that does not fit waits until
+an earlier run finishes, first come, first served. What happens while runs wait depends on how the
+run was triggered:
+
+| Trigger | While runs wait |
+| --- | --- |
+| API | Queued, up to 32 waiting runs (`REMORA_MAX_WAITING_RUNS` changes the limit). Past that the call is answered **503** at once, naming how many runs are running and waiting; retry later |
+| CRON | Always queued, so a tick is never lost. A tick whose consumer already has a CRON run waiting is folded into it |
+| QUEUE | No message is fetched until nothing waits, so a message waits in SQS rather than spending its visibility timeout |
+
 ### **Post-Processing Actions**
 
 ### **File Movement**
