@@ -2438,6 +2438,62 @@ Sampling a consumer needs a source the pipeline can read — `local`, `aws-s3` o
 consumer whose producer reads `aws-redshift` or `http-api` is refused with the reason, naming the
 producer; sample that **producer** directly to see its rows.
 
+### **Machine-Readable Output (`--json`)**
+
+Every command takes `--json`, before or after the command name. Remora then writes **one JSON object
+per line on stdout**, in the order things happen, for a script or a service to read while the
+command runs. Errors are on stdout too, as lines of their own; the exit code is non-zero when a run
+fails, as without the flag.
+
+```bash
+remora run consumer-name --json
+remora --json compile
+```
+
+A run of one consumer reads like this (shortened):
+
+```json
+{"type":"task:start","task":1,"label":"Compiling the project"}
+{"type":"task:end","task":1,"outcome":"succeeded","text":"Compiled 128 resources","elapsedMS":83.3}
+{"type":"consumer:start","runId":"884d80af-…","consumer":"orders_daily","workers":9}
+{"type":"stage:start","runId":"884d80af-…","stage":"process","detail":{"files":1,"bytes":17456}}
+{"type":"stage:progress","runId":"884d80af-…","stage":"process","done":17456,"total":17456,"rows":121}
+{"type":"stage:end","runId":"884d80af-…","stage":"process","elapsedMS":526.4}
+{"type":"consumer:end","runId":"884d80af-…","elapsedMS":639.6,"rows":100,"resultUri":"results/orders_daily_0.csv"}
+{"type":"message","kind":"info","text":"Run complete · 1 succeeded · 100 rows · 856ms"}
+```
+
+Every line has a `type`:
+
+| `type` | Written when | Fields |
+| --- | --- | --- |
+| `consumer:start` | A run starts | `runId` (the run's execution id), `consumer`, `workers` (the most worker threads it can use), `parentRunId` |
+| `stage:start` | A run enters a stage | `runId`, `stage`, `detail`: `producers` (prepare), `files` and `bytes` (process), `destination` (export) |
+| `stage:progress` | While a stage works | `runId`, `stage`, `done`, `total` (0 when unknown), `rows` (process only: input lines read so far) |
+| `stage:end` | A stage finishes | `runId`, `stage`, `elapsedMS` |
+| `consumer:end` | A run finishes | `runId`, `elapsedMS`; `rows` and `resultUri` on success, `error` on failure |
+| `task:start` | A command starts a piece of work (compiling, verifying a producer) | `task` (a number), `label` |
+| `task:end` | That work ends | `task`, `outcome` (`succeeded`, `failed` or `warned`), `text`, `elapsedMS` |
+| `message` | A notice, including the run's closing totals | `kind` (`info`, `warn`, `error` or `hint`), `text`, `detail` (extra lines) |
+| `table` | A summary, a layout, sample rows | `title`, `columns`, `rows`, `align` |
+| `log` | A log record that would have printed on the console | `level`, `message`, `stack` |
+
+- **Stages** come in this order: `prepare`, `process`, `reconcile`, `postprocess`, `export`. A run
+  that only feeds another consumer has no `export`.
+- **Progress units**: `process` counts input bytes, so `total` matches its `detail.bytes`. `prepare`
+  counts a fraction, with `total` 1.
+- **A failed run** ends with a `consumer:end` carrying `error`, and the stage it failed in has no
+  `stage:end`. A `task:start` with no `task:end` means the command stopped during that task.
+- **Upstream runs** — a consumer input, a code lookup, an `onSuccess`/`onError` run — report under
+  their own `runId`, with `parentRunId` set to the run that needed them.
+- **Durations** are in milliseconds and not rounded. Lines carry facts only: no colours, symbols or
+  percentages.
+- **New fields may be added** to any line; existing ones are not renamed or removed. Ignore fields and
+  `type`s you do not know.
+
+`graph` still writes its diagram, and `init` its questions, as they are; use `remora graph -f json`
+for a machine-readable graph.
+
 ### **Common Validation Errors**
 
 | Error | Cause | Solution |
