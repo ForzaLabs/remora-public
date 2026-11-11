@@ -2491,8 +2491,8 @@ Every line has a `type`:
 - **New fields may be added** to any line; existing ones are not renamed or removed. Ignore fields and
   `type`s you do not know.
 
-`graph` still writes its diagram, and `init` its questions, as they are; use `remora graph -f json`
-for a machine-readable graph.
+`graph` still writes its diagram, `docs <topic>` its document, and `init` its questions, as they
+are; use `remora graph -f json` for a machine-readable graph.
 
 ### **Common Validation Errors**
 

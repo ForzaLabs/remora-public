@@ -44,7 +44,7 @@ This mirror tracks the latest published CLI. The same schemas and documents ship
 package, so the copy that matches the version you installed is always on your own disk:
 
 ```bash
-ls "$(npm root -g)/@forzalabs/remora/docs"
+remora docs                                   # list them, or `remora docs consumers` to print one
 ls "$(npm root -g)/@forzalabs/remora/json_schemas"
 ```
 
