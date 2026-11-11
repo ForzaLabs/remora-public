@@ -283,9 +283,14 @@
                         "type": "boolean",
                         "description": "If set, \"default\" must have a value. This field is not searched in the underlying dataset, but is a fixed value set by the \"default\" prop."
                     },
+                    "meta": {
+                        "type": "string",
+                        "enum": ["executionId", "lineCount"],
+                        "description": "A value the engine produces rather than reads, so the field reads no producer column. 'executionId' is the run's id, the same on every record, and the id 'remora report' shows. 'lineCount' is the 1-based source line of the record, kept consistent across parallel workers. Can't be combined with 'fixed', 'copyFrom', 'lineCount' or a pattern key."
+                    },
                     "lineCount": {
                         "type": "boolean",
-                        "description": "If set, this field is populated with the 1-based source line number of the current record. For multi-worker file processing the final value is normalized during merge so it remains consistent across chunks."
+                        "description": "Deprecated: use \"meta\": \"lineCount\" instead, which this means. 'compile' warns on it, and setting both is rejected."
                     },
                     "copyFrom": {
                         "type": "string",
@@ -385,6 +390,10 @@
                     "exportName": {
                         "type": "string",
                         "description": "If the format is a file, forces the same name in the export file (extension is auto-added)"
+                    },
+                    "exportPrefix": {
+                        "type": "string",
+                        "description": "A folder put in front of every file this output exports, rendered once per run, e.g. 'inbound/{executionId}/' (keep the trailing '/' for a folder). Variables: {executionId}, {consumerName}, {date} (YYYY-MM-DD, the run's start in UTC). It becomes the key prefix on aws-s3, part of the file name the minter signs on presigned-url, and a subfolder on local. Rejected on an API output, and when it starts with '/' or holds a '..' segment."
                     },
                     "delimiter": {
                         "type": "string",
@@ -2010,7 +2019,8 @@
                     "type": "string",
                     "enum": [
                         "move-file",
-                        "run-consumer"
+                        "run-consumer",
+                        "call-api"
                     ],
                     "description": "The action to perform"
                 },
@@ -2024,6 +2034,38 @@
                         "type": "string"
                     },
                     "description": "If the action is 'run-consumer', the names of the consumers to run sequentially once this output finishes"
+                },
+                "source": {
+                    "type": "string",
+                    "description": "If the action is 'call-api', required: the http-api source to call. It holds the URL, method, headers and credentials."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "If the action is 'call-api', appended to the source's url."
+                },
+                "body": {
+                    "type": "object",
+                    "description": "If the action is 'call-api', the JSON body. Every text in it is a template: {executionId}, {consumerName}, {date}, {status}, {startedAt}, {recordCount}, {folder}, {files}, and {error} in onError only. A value that is exactly \"{files}\" or \"{recordCount}\" is sent as a list or a number. Needs a source whose httpMethod is POST, PUT or PATCH."
+                },
+                "query": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "If the action is 'call-api', query parameters, each value a text template with the same variables as 'body'."
+                },
+                "onFailure": {
+                    "type": "string",
+                    "enum": ["fail", "ignore"],
+                    "default": "fail",
+                    "description": "If the action is 'call-api', what a call that still fails after its retries does to the run: 'fail' fails it and runs the onError actions, 'ignore' logs it. Defaults to 'fail'."
+                },
+                "retries": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "default": 0,
+                    "description": "If the action is 'call-api', how many times a network error or a 5xx answer is retried, with backoff (1s, 2s, 4s...). A 4xx is never retried. 0 to 5, defaults to 0."
                 }
             },
             "required": [

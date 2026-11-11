@@ -227,7 +227,7 @@ Notes:
 - **Empty entries are dropped** by default, as they are in a fixed-width group. Set
   `skipEmptyOccurrences: false` to keep them. A document whose array is missing or empty produces no
   record at all.
-- A `lineCount` field still means the **source line**, so the records fanned out of one document
+- A `"meta": "lineCount"` field still means the **source line**, so the records fanned out of one document
   share it. Dataset row counts (`min_rows`/`max_rows`) count output records.
 - A child declaring no `path` reads its own key inside the entry, exactly as a dimension outside the
   group reads its own key in the document.
@@ -569,7 +569,7 @@ Notes:
 - **At most one group per producer** may fan out — two would multiply their occurrences together.
 - Records stay flat, so CSV/TXT export, `pivot`, `distinctOn`, transforms and validations all keep working exactly as they do on any other producer.
 - Empty occurrences are dropped by default: a layout reserving 121 slots usually populates a handful, and the empty records would bury the real ones. Set `skipEmptyOccurrences: false` to keep them.
-- A `lineCount` field still means the **source line**, so the records fanned out of one line share it. Dataset row counts (`min_rows`/`max_rows`) count output records, which is what fanning out changes.
+- A `"meta": "lineCount"` field still means the **source line**, so the records fanned out of one line share it. Dataset row counts (`min_rows`/`max_rows`) count output records, which is what fanning out changes.
 - `indexFrom` numbers the occurrences here too, as the value of the occurrence field rather than part of a name.
 
 ### **Variable Occurrences and Anchoring**

@@ -38,7 +38,7 @@ The `authentication.method` field selects how Remora connects. The methods avail
 | `iam` | `aws-s3`, `aws-redshift`, `aws-sqs`, `postgres` | Use the AWS SDK default credential chain (EC2/ECS/EKS instance or task role, SSO, env vars) — no static keys stored. On `postgres` this signs a short-lived RDS IAM auth token instead of sending a password |
 | `arn` | `aws-s3`, `aws-redshift`, `aws-sqs`, `postgres` | Assume an IAM role via STS (`roleArn`); base identity comes from the SDK default chain |
 | `bearer-token` | `delta-share`, `http-api`, `presigned-url` | Static bearer token |
-| `oidc` | `delta-share`, `presigned-url` | OAuth2 client-credentials grant (e.g. Okta/Cognito) that mints a short-lived token. This is what machine-to-machine (M2M) authentication on an API Gateway means |
+| `oidc` | `delta-share`, `http-api`, `presigned-url` | OAuth2 client-credentials grant (e.g. Okta/Cognito) that mints a short-lived token. This is what machine-to-machine (M2M) authentication on an API Gateway means |
 | `api-key` | `http-api`, `presigned-url` | API key sent in a header |
 | `username-password` | `http-api`, `postgres`, `presigned-url` | HTTP Basic authentication, or a database user and password |
 | `none` | `http-api`, `presigned-url` | No authentication (public endpoints) |
@@ -747,9 +747,9 @@ HTTP API sources read data from a REST endpoint. The source holds the base `url`
 
 | Property | Required | Description | Example |
 | --- | --- | --- | --- |
-| `method` | ✅ | `"none"`, `"api-key"`, `"bearer-token"`, or `"username-password"` (HTTP Basic) | `"bearer-token"` |
+| `method` | ✅ | `"none"`, `"api-key"`, `"bearer-token"`, `"username-password"` (HTTP Basic) or `"oidc"` (OAuth2 client-credentials) | `"bearer-token"` |
 | `url` | ✅ | Base URL of the API | `"https://api.example.com"` |
-| `headers` | ❌ | Custom headers sent with every request | `{ "Accept": "application/json" }` |
+| `headers` | ❌ | Custom headers sent with every request. A value can reference an environment variable; an unset one fails the request, naming the header | `{ "Accept": "application/json", "X-Tenant": "{API_TENANT}" }` |
 | `queryParams` | ❌ | Default query parameters sent with every request | `{ "version": "2" }` |
 | `httpMethod` | ❌ | HTTP method (default `GET`) | `"GET"`, `"POST"` |
 | `timeout` | ❌ | Request timeout in milliseconds (default `30000`) | `30000` |
@@ -757,6 +757,7 @@ HTTP API sources read data from a REST endpoint. The source holds the base `url`
 | `apiKey` | ❌ | Key for `api-key` | `"{API_KEY}"` |
 | `apiKeyHeader` | ❌ | Header name for the API key (default `X-API-Key`) | `"X-API-Key"` |
 | `user` / `password` | ❌ | Credentials for `username-password` (HTTP Basic) | `"{API_USER}"` / `"{API_PASSWORD}"` |
+| `tokenEndpoint`, `clientId`, `clientSecret`, `scope` | ❌ | Credentials for `oidc`, as for a Delta Share source. The token is cached and refreshed before it expires | `"{API_CLIENT_SECRET}"` |
 
 ### **Example — API-key authentication**
 
@@ -834,12 +835,34 @@ Everything here configures the **mint call only**. The signed URL that comes bac
 | `url` | Yes | The minting endpoint |
 | `httpMethod` | No | Method for the mint call. Defaults to `POST` |
 | `fileNameParam` | No | Field carrying the file name — in the JSON body on `POST`/`PUT`/`PATCH`, as a query parameter otherwise. Defaults to `filename` |
+| `mintParams` | No | Extra fields every mint call carries, beside the file name and in the same place. Each value is a template rendered once per export run (see below) |
 | `signedUrlField` | No | Dot path to the URL in the response, e.g. `data.uploadUrl`. Defaults to `url` |
 | `signedHeadersField` | No | Dot path to an object of headers in the response. Set it when your minter signs headers (see below) |
 | `signedUrlMethod` | No | Method used against the signed URL. Defaults to `GET` when reading and `PUT` when exporting |
 | `headers`, `queryParams`, `timeout` | No | Sent with the mint call, as for `http-api` |
 
 An M2M-protected API Gateway is the `oidc` method: set `tokenEndpoint`, `clientId`, `clientSecret` and `scope`, and the token is cached and refreshed shortly before it expires rather than fetched per file.
+
+### **Sending the run's folder**
+
+To keep each run's files apart, set `exportPrefix` on the consumer output: `"inbound/{executionId}/"` makes the file name sent to your endpoint `inbound/<run id>/orders_0.csv`, and your endpoint signs that key (see the Consumers guide).
+
+If your endpoint builds the key itself and wants the folder as a field of its own, use `mintParams`. Every mint of the run then carries it beside the file name:
+
+```json
+"authentication": {
+    "method": "oidc",
+    "url": "https://api.example.com/v1/uploads/presign",
+    "httpMethod": "POST",
+    "mintParams": { "folder": "{executionId}" }
+}
+```
+
+The variables are the ones `exportPrefix` takes: `{executionId}`, `{consumerName}` and `{date}`. Every mint of one run sends the same values. The two can be used together or apart.
+
+- `mintParams` values are templates, not secret references. A static credential goes in `headers` or `queryParams`.
+- A key equal to `fileNameParam` is rejected, since it would overwrite the file name the URL is signed for, and so is an unknown variable.
+- When the source is read from, no run variables exist: only literal values are sent, and a `{variable}` fails the read.
 
 ### **What your endpoint must return**
 

@@ -245,6 +245,13 @@
                     "description": "presigned-url only. Name of the field carrying the file name to the minting endpoint - in the JSON body on a POST/PUT/PATCH, as a query parameter otherwise",
                     "default": "filename"
                 },
+                "mintParams": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "presigned-url only. Extra fields every mint request carries, beside the file name and in the same place. Each value is a template rendered once per export run: {executionId}, {consumerName}, {date} (YYYY-MM-DD, the run's start in UTC), e.g. { \"folder\": \"{executionId}\" }. Not a secret reference: a static credential goes in headers or queryParams. A key equal to fileNameParam is rejected."
+                },
                 "signedUrlMethod": {
                     "type": "string",
                     "enum": [

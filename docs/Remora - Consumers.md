@@ -200,7 +200,7 @@ Fields define which data columns to include in the consumer output and how to tr
 | `onError` | ❌ | Error handling strategy | `"set_default"`, `"skip"`, `"fail"` |
 | `validate` | ❌ | Field-level data-quality rules (see [Field Validation](#field-validation)) | Array of `{ rule, onFail }` |
 | `copyFrom` | ❌ | Add a new field that is a value copy of an earlier field (copies the value *before* that field's transformations) | `"amount"`, `"Sale Amount"` |
-| `lineCount` | ❌ | Populate the field with the 1-based source line number of each record (consistent across parallel workers) | `true`, `false` |
+| `meta` | ❌ | A value the engine produces instead of reading a column: the run's id, or the record's source line (see [Meta Fields](#meta-fields)) | `"executionId"`, `"lineCount"` |
 | `position` | ⚠️ | `FIXED` output only, and required on every visible field of one: the columns this field occupies and how its value is filled out to them (see [FIXED Output](#fixed-output)) | `{ "width": 10, "start": 21 }` |
 | `path` | ❌ | `JSON`/`API` output only: where this field's value sits in the exported document. Dots make objects, each `[]` is one repeating level (see [Nested Documents](#nested-documents)) | `"patient.reference"`, `"item[].net.value"` |
 | `groupConflict` | ❌ | `JSON`/`API` output only, and only on a grouped output: what happens when the records of one group disagree on this field's value. Defaults to failing the run | `"fail"` (default), `"first"` |
@@ -270,7 +270,7 @@ Notes:
 
 - Matching is literal apart from the wildcards — a pattern is never a regular expression.
 - A pattern is expanded **where it is declared**, and its matches follow the producer's own column order.
-- A pattern that matches **nothing** is rejected at `compile`, as is an `alias` that would give two matches the same output name. So is a pattern combined with `fixed`, `copyFrom` or `lineCount`: those fields don't read a producer column, so there is nothing to match.
+- A pattern that matches **nothing** is rejected at `compile`, as is an `alias` that would give two matches the same output name. So is a pattern combined with `fixed`, `copyFrom` or `meta`: those fields don't read a producer column, so there is nothing to match.
 - Add `"onError": "skip"` when a transform can't handle every match — over a sparse repeating group most occurrences are `null`, and a transform like `to_uppercase` rejects a non-string value rather than passing it through.
 - The bare `"key": "*"` keeps its own meaning: every column of one producer, under its own name.
 
@@ -310,18 +310,30 @@ Notes:
 }
 ```
 
-### **Line Number Fields**
+### **Meta Fields**
 
-Set `lineCount` to populate a field with the 1-based source line number of each record. The value stays consistent even when a file is processed in parallel across multiple workers.
+`meta` fills a field with a value the engine produces, rather than one read from a producer column:
 
 ```json
 {
   "fields": [
-    { "key": "row_number", "lineCount": true },
+    { "key": "run_id", "meta": "executionId" },
+    { "key": "row_number", "meta": "lineCount" },
     { "key": "customer_id" }
   ]
 }
 ```
+
+| Value | What the field holds | Type |
+| --- | --- | --- |
+| `executionId` | The id of the run that wrote the record, the same on every record of the run. It is the id `remora report` shows, and the one `{executionId}` renders in an [`exportPrefix`](#a-folder-per-run-exportprefix) or a [`call-api`](#call-an-api-call-api) body | string |
+| `lineCount` | The 1-based source line of the record. It stays the line of the source file even when the file is processed in parallel across several workers | number |
+
+A consumer started by a [`run-consumer`](#run-consumers) action is a run of its own, so its `executionId` is its own, not its parent's.
+
+A meta field reads no column, so it can't also be `fixed` or `copyFrom`, can't use a pattern key or `*`, and a filter on it is never [pushed down](#pushdown-delta-share) to the source. A `lineCount` field also takes no `transform` or `validate`, and no filter, `copyFrom` or transformation can read it: its value is only final once every worker's records are merged. Each of these is rejected at `compile`.
+
+`"lineCount": true` is the older spelling of `"meta": "lineCount"` and still works, but `compile` warns on it. Setting both on one field is rejected.
 
 ---
 
@@ -895,7 +907,7 @@ way — so this only ever saves download time and staging space.
 A filter is pushed only when it can mean exactly the same thing at the source:
 
 - The field reads a producer dimension **untouched**. A field with a `transform`, a `validate`, a
-  `default`, or one that is `fixed`/`copyFrom`/`lineCount`, is never pushed, and neither is a masked
+  `default`, or one that is `fixed`/`copyFrom`/`meta`, is never pushed, and neither is a masked
   dimension or one filled in after the read (`sourceFilename`).
 - The operator has a counterpart in the Delta Sharing predicate grammar: `equals`, `in`, `between`
   and the four `greaterThan`/`lessThan` comparisons. The substring and regex operators
@@ -979,6 +991,7 @@ consumer over the same producers.
 | `format` | ✅ | Output format | `"JSON"`, `"CSV"`, `"TXT"`, `"FIXED"`, `"PARQUET"`, `"API"` |
 | `exportDestination` | ❌ | Target destination source | `"s3-bucket"`, `"local-output"` |
 | `exportName` | ❌ | Fixed filename for exports | `"daily-report"`, `"customer-data"` |
+| `exportPrefix` | ❌ | A folder put in front of every exported file, rendered once per run (see [A Folder per Run](#a-folder-per-run-exportprefix)). Not on an `API` output | `"inbound/{executionId}/"` |
 | `delimiter` | ❌ | Field delimiter, only used for `TXT` output (defaults to a tab). Ignored by every other format, `PARQUET` included, and rejected on `FIXED`, which has no delimiter at all | `"\t"`, `";"` |
 | `header` | ❌ | `CSV`/`TXT` only: write the field names as the first line of each exported file (see [The Header Line](#the-header-line)). Rejected on `PARQUET`, which carries its own schema, and on `FIXED`, which has no room for one | `true` (default), `false` |
 | `omitNull` | ❌ | `JSON`/`API` only: leave out the fields whose value is `null` (see [Omitting Null Fields](#omitting-null-fields)) | `true`, `false` (default) |
@@ -1581,7 +1594,7 @@ The schema comes from what the consumer already declares — each field's dimens
 | `number` | `DOUBLE` — every value remora holds is a double, so an integer column would promise precision the record never had |
 | `boolean` | `BOOLEAN` |
 | `datetime` | `INT64` / `TIMESTAMP_MILLIS` |
-| *none* (a `fixed`, `lineCount` or `copyFrom` field, or a column matched by a pattern key) | `BYTE_ARRAY` / UTF8 — there is no declared type to read |
+| *none* (a `fixed`, `meta` or `copyFrom` field, or a column matched by a pattern key) | `BYTE_ARRAY` / UTF8 — there is no declared type to read |
 
 Every column is nullable, so **a null stays a null** rather than becoming `0`, `false` or `""` — in a column store those are different things. A `hidden` field is not in the file at all, not even as an empty column.
 
@@ -1600,6 +1613,41 @@ A parquet file is a container whose footer can only be written once the last row
   ]
 }
 ```
+
+### **A Folder per Run (`exportPrefix`)**
+
+`exportPrefix` puts every file a run exports under one folder, named after the run, so a receiver can tell which files belong together:
+
+```json
+{
+  "outputs": [
+    {
+      "format": "CSV",
+      "exportDestination": "partner_upload",
+      "exportName": "orders",
+      "exportPrefix": "inbound/{executionId}/"
+    }
+  ]
+}
+```
+
+A run then writes `inbound/3f2c9a1e-…/orders_0.csv`, and the next run a folder of its own. The prefix is put in front of the file name as written, so keep the trailing `/` to make it a folder: `"{consumerName}_"` gives a name prefix instead.
+
+| Variable | Renders as |
+| --- | --- |
+| `{executionId}` | The run's id, the one `remora report` shows and a [`meta: "executionId"`](#meta-fields) field holds |
+| `{consumerName}` | The consumer's `name` |
+| `{date}` | The day the run started, `YYYY-MM-DD` in UTC. A run that crosses midnight keeps its start day |
+
+It works the same on every file destination:
+
+| Destination | What the prefix becomes |
+| --- | --- |
+| `aws-s3` | The object key prefix |
+| `presigned-url` | Part of the file name sent to the minting endpoint, which signs that key. To send the folder as a field of its own instead, see `mintParams` in the Sources guide |
+| `local` | A subfolder of the source's path, created on demand |
+
+`compile` rejects an unknown variable, a prefix starting with `/`, a `..` segment, and an `exportPrefix` on an `API` output, which writes no file.
 
 ### **Multiple Outputs**
 
@@ -1847,6 +1895,67 @@ The `run-consumer` action triggers one or more other consumers once the output f
 ```
 
 Each name in `consumers` must resolve to a consumer in the project (validated at compile time). Chains are guarded against cycles (e.g. `A → B → A` is detected and skipped) and capped at a maximum depth (`MAX_ON_FINISH_DEPTH`).
+
+### **Call an API (`call-api`)**
+
+The `call-api` action sends one request once the output finishes, to tell another system the run is done (`onSuccess`) or that it failed (`onError`). It names an `http-api` source, which holds the URL, the method (`httpMethod`), the headers and the credentials; the action adds what is specific to this one call:
+
+```json
+{
+  "outputs": [
+    {
+      "format": "CSV",
+      "exportDestination": "partner_upload",
+      "exportPrefix": "inbound/{executionId}/",
+      "onSuccess": [
+        {
+          "action": "call-api",
+          "source": "ingest_api",
+          "path": "/runs/complete",
+          "body": { "runId": "{executionId}", "folder": "{folder}", "files": "{files}", "rows": "{recordCount}" },
+          "onFailure": "fail",
+          "retries": 2
+        }
+      ],
+      "onError": [
+        {
+          "action": "call-api",
+          "source": "ingest_api",
+          "path": "/runs/failed",
+          "body": { "runId": "{executionId}", "error": "{error}" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Property | Required | Description |
+| --- | --- | --- |
+| `source` | ✅ | An `http-api` source in the project |
+| `path` | ❌ | Appended to the source's `url` |
+| `body` | ❌ | The JSON body, a template. Needs a source whose `httpMethod` is `POST`, `PUT` or `PATCH` |
+| `query` | ❌ | Query parameters, each value a template, sent beside the source's own `queryParams` |
+| `onFailure` | ❌ | What a call that still fails after its retries does to the run: `fail` (default) or `ignore` |
+| `retries` | ❌ | `0`–`5`, default `0`. How many times a network error, a timeout or a `5xx` answer is retried, waiting 1s, 2s, 4s… between attempts. A `4xx` is never retried |
+
+The body and the query can name these variables:
+
+| Variable | Renders as |
+| --- | --- |
+| `{executionId}`, `{consumerName}`, `{date}` | As in an [`exportPrefix`](#a-folder-per-run-exportprefix) |
+| `{status}` | `success` or `error` |
+| `{startedAt}` | When the run started, as an ISO 8601 timestamp |
+| `{recordCount}` | The number of records exported |
+| `{folder}` | The rendered `exportPrefix`, or `""` when the output sets none |
+| `{files}` | The names the exported files were written under, prefix included |
+| `{error}` | The failure message. `onError` only |
+
+A body value that is exactly `"{files}"` or `"{recordCount}"` keeps its JSON type, a list or a number. Inside longer text every variable renders as text, a list as its items joined by commas. A run that fails before its export sends `{folder}` as `""`, `{files}` as `[]` and `{recordCount}` as `0`.
+
+**What a failure does.** With `onFailure: "fail"` a call that still fails marks the run failed, with the API's answer kept in the run's record, and the output's `onError` actions then run — so an `onError` `call-api` still tells the receiver. With `"ignore"` the failure is logged and the run stays successful. On the error path a failed call is only logged: it never replaces the run's own error.
+
+`compile` rejects a `call-api` with no `source`, one naming a source that is missing or is not `http-api`, `retries` outside `0`–`5`, and a variable the body or query can't use (`{error}` in an `onSuccess` included). `remora synth` skips every `call-api`, as it skips `move-file`, so fake data never reaches a real API.
 
 ---
 
