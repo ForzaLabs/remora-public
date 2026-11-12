@@ -1837,8 +1837,13 @@ run was triggered:
 | Trigger | While runs wait |
 | --- | --- |
 | API | Queued, up to 32 waiting runs (`REMORA_MAX_WAITING_RUNS` changes the limit). Past that the call is answered **503** at once, naming how many runs are running and waiting; retry later |
-| CRON | Always queued, so a tick is never lost. A tick whose consumer already has a CRON run waiting is folded into it |
+| CRON | Always queued, so a tick is never lost. A tick whose consumer already has a CRON run waiting to start is folded into it |
 | QUEUE | No message is fetched until nothing waits, so a message waits in SQS rather than spending its visibility timeout |
+
+Each run works in a thread of its own, with memory sized from what its consumer used in its last
+five successful runs, or 4GB for a consumer with none. A run that outgrows it fails alone, naming the
+limit it reached, and the other runs carry on. `REMORA_THREAD_ESTIMATE_MARGIN` sets the margin
+over what was measured.
 
 ### **Post-Processing Actions**
 
