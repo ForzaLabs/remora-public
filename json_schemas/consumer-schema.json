@@ -677,9 +677,18 @@
                 "type": "string"
             }
         },
+        "domains": {
+            "type": "array",
+            "description": "Tags grouping this consumer with others in the project, for 'remora run --domain' and an API key's domain scope. A consumer can be in several; none means every domain.",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "uniqueItems": true
+        },
         "project": {
             "type": "string",
-            "description": "Tag that groups consumers together to make them accessible by a singular api_key"
+            "description": "Deprecated: use \"domains\": [\"<name>\"] instead, which this means. 'compile' warns on it, and setting both is rejected."
         },
         "options": {
             "type": "object",
@@ -2146,7 +2155,9 @@
                 "department": "Sales",
                 "owner": "analytics-team"
             },
-            "project": "sales-analytics",
+            "domains": [
+                "sales-analytics"
+            ],
             "_version": 1
         }
     ]

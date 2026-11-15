@@ -216,6 +216,8 @@ npx @forzalabs/remora synth c_quality_gaps --output ./tmp/fixtures
 
 The export itself still runs in full — format conversion, header, field positions, file splitting, FIXED layouts — so the file you get is what the destination would have received, byte for byte. `move-file` actions on `onSuccess`/`onError` are the one thing skipped: they archive and delete the producers' real source files, which a synthetic run never read. `run-consumer` actions still fire, and the consumers they start are synthesized too.
 
+With `--parallel`, consumers that do not reference each other run side by side, all reading the one generated input and each writing to its own subfolder. They are grouped exactly as `remora run --parallel` groups them (see *Running consumers side by side* in the Consumers documentation).
+
 ---
 
 ## **Code Set Schema Reference**
@@ -279,8 +281,11 @@ npx @forzalabs/remora synth c_quality_gaps
 # Control row count and seed
 npx @forzalabs/remora synth c_quality_gaps --records 500 --seed my-seed
 
-# Run every consumer tagged with a given project
-npx @forzalabs/remora synth --project my-project
+# Run every consumer in a given domain
+npx @forzalabs/remora synth --domain my-domain
+
+# Run the domain's unrelated consumers side by side, on the same generated input
+npx @forzalabs/remora synth --domain my-domain --parallel
 
 # Write the exports somewhere other than remora/.synth
 npx @forzalabs/remora synth c_quality_gaps --output ./tmp/fixtures

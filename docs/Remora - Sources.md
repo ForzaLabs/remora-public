@@ -45,6 +45,11 @@ The `authentication.method` field selects how Remora connects. The methods avail
 
 > **Security tip:** never hard-code secrets. Reference environment variables with the `{ENV_VAR}` notation (e.g. `"accessKey": "{AWS_ACCESS_KEY_ID}"`), and prefer `iam`/`arn` over static keys on AWS.
 
+**How a `{VAR}` reference resolves.** Remora looks up `<PROJECT>__VAR` first, then `VAR`. `<PROJECT>` is the project's `name`, upper-cased, with every character outside `A-Z` and `0-9` turned into `_`: project `billing` reading `{REDSHIFT_PASSWORD}` gets `BILLING__REDSHIFT_PASSWORD` if it is set, `REDSHIFT_PASSWORD` if not. On a worker serving several projects, a prefixed variable is private to its project and a bare one is shared by all of them.
+
+- A reference containing `__` is refused: name the variable without its prefix.
+- Remora's own settings (`JWT_SECRET`, `MONGO_URI`, `REMORA_LICENCE_KEY` and the like) never resolve. The `AWS_*` variables and `REMORA_MASK_IN_DEV` still do.
+
 ---
 
 ## **Local Sources**

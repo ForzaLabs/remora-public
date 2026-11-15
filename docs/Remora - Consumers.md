@@ -31,7 +31,7 @@ All consumers follow this basic structure:
   "validate": [/* dataset-level validations */ ],
   "split": {/* break the output into several files */ },
   "metadata": {/* custom tags */ },
-  "project": "project-name",
+  "domains": ["domain-name"],
   "schema": "schema-name",
   "_version": 1
 }
@@ -990,7 +990,7 @@ consumer over the same producers.
 | --- | --- | --- | --- |
 | `format` | ✅ | Output format | `"JSON"`, `"CSV"`, `"TXT"`, `"FIXED"`, `"PARQUET"`, `"API"` |
 | `exportDestination` | ❌ | Target destination source | `"s3-bucket"`, `"local-output"` |
-| `exportName` | ❌ | Fixed filename for exports | `"daily-report"`, `"customer-data"` |
+| `exportName` | ❌ | Fixed filename for exports. Without one, each run writes `<consumer>_<YYYY-MM-DDTHH-mm-ss>_<run id>`, where the run id's first 8 characters keep two runs in the same second apart | `"daily-report"`, `"customer-data"` |
 | `exportPrefix` | ❌ | A folder put in front of every exported file, rendered once per run (see [A Folder per Run](#a-folder-per-run-exportprefix)). Not on an `API` output | `"inbound/{executionId}/"` |
 | `delimiter` | ❌ | Field delimiter, only used for `TXT` output (defaults to a tab). Ignored by every other format, `PARQUET` included, and rejected on `FIXED`, which has no delimiter at all | `"\t"`, `";"` |
 | `header` | ❌ | `CSV`/`TXT` only: write the field names as the first line of each exported file (see [The Header Line](#the-header-line)). Rejected on `PARQUET`, which carries its own schema, and on `FIXED`, which has no room for one | `true` (default), `false` |
@@ -1758,6 +1758,11 @@ Configure automated execution of consumers based on schedules, API calls, or que
 | `maxReceiveCount` | Failed deliveries tolerated before the message stops being processed. Defaults to `"5"` |
 | `endpoint` | Base URL of an SQS-compatible server to use instead of AWS — e.g. `http://localhost:9324` for a local ElasticMQ in development. A `value` given as a queue name is built against it. Omit it to talk to AWS; `REMORA_SQS_ENDPOINT` sets the same thing for every queue |
 
+**A queue belongs to one project.** On a worker serving several projects, a project whose QUEUE
+trigger or `API_QUEUE` names a queue another project already polls is refused when it loads; the
+project loaded first keeps the queue. Consumers of one project can still share a queue through
+`messageType`.
+
 #### **Failed messages**
 
 A message is only deleted from the queue once at least one consumer has processed it successfully —
@@ -2116,15 +2121,20 @@ Add custom tags for organization and filtering:
 }
 ```
 
-### **Project Organization**
+### **Domains**
 
-Group consumers into projects for access control:
+Group consumers into domains, to run them together with `remora run --domain` and to scope an API
+key to them. A consumer can be in several domains:
 
 ```json
 {
-  "project": "customer-analytics"
+  "domains": ["customer-analytics", "marketing"]
 }
 ```
+
+`domains` replaces the single-tag `project` field. A consumer still setting `"project": "x"` loads as
+`"domains": ["x"]`, and `compile` warns; setting both is an error. "Project" now means only the
+project in `project.json`.
 
 ### **Schema Validation**
 
@@ -2226,7 +2236,7 @@ Validate output against JSON schemas:
     "data_classification": "PHI",
     "retention_period": "7_years"
   },
-  "project": "healthcare-analytics",
+  "domains": ["healthcare-analytics"],
   "_version": 1
 }
 ```
@@ -2335,7 +2345,7 @@ Validate output against JSON schemas:
     "refresh_rate": "15_minutes",
     "data_classification": "internal"
   },
-  "project": "sales-analytics",
+  "domains": ["sales-analytics"],
   "_version": 1
 }
 
@@ -2407,9 +2417,42 @@ remora run consumer-name
 # Run with a limited number of output records (useful for a quick test)
 remora run consumer-name --limit 10
 
-# Run every consumer belonging to a project
-remora run --project project-name
+# Run every consumer in a domain
+remora run --domain domain-name
+
+# Run unrelated consumers side by side
+remora run --parallel
+remora run --domain domain-name --parallel
 ```
+
+#### Running consumers side by side (`--parallel`)
+
+`remora run` runs the consumers it selects one after another. With `--parallel`, consumers that do
+not reference each other run side by side, and the ones that do still run one after another, in the
+order they run without the flag. `remora synth --parallel` works the same way. A failed consumer
+fails alone; the summary and the exit code are the same as without the flag.
+
+Two consumers run in turn when one reaches the other, directly or through other consumers:
+
+| Link | Example |
+| --- | --- |
+| One is an input of the other | A consumer named in another's `producers` |
+| One is a code lookup of the other | A `code_lookup` on another consumer |
+| One runs the other | A `run-consumer` action in `onSuccess` or `onError`, or two consumers whose actions run the same one |
+| One writes a source the other reads | Its `exportDestination`, a `move-file` (both the source it moves from and the one it moves to), or a `call-api` source |
+
+A source counts as a whole: two consumers that write and read different tables or folders of one
+source still run in turn.
+
+**Only links in the configuration are seen.** If one consumer writes data another reads through
+something Remora does not know about — a table reached through a different source, a script between
+the two — they may overlap and the reader gets stale or partial data. Run such consumers without
+`--parallel`.
+
+**Memory decides how many run at once.** Each run reserves its memory as described in
+[When the Worker Is Busy](#when-the-worker-is-busy); a run that does not fit waits, shown as
+waiting in the live view, and starts when an earlier one finishes. Consumers with no run history
+reserve 4GB each, so on a small machine few run together until each has run once.
 
 #### Sampling a consumer
 
@@ -2472,9 +2515,10 @@ Every line has a `type`:
 
 | `type` | Written when | Fields |
 | --- | --- | --- |
+| `consumer:waiting` | A run waits for memory before it starts (see [Running consumers side by side](#running-consumers-side-by-side---parallel)) | `runId`, `consumer`, `memoryMB` (the memory it waits for) |
 | `consumer:start` | A run starts | `runId` (the run's execution id), `consumer`, `workers` (the most worker threads it can use), `parentRunId` |
 | `stage:start` | A run enters a stage | `runId`, `stage`, `detail`: `producers` (prepare), `files` and `bytes` (process), `destination` (export) |
-| `stage:progress` | While a stage works | `runId`, `stage`, `done`, `total` (0 when unknown), `rows` (process only: input lines read so far) |
+| `stage:progress` | While a stage works | `runId`, `stage`, `done`, `total` (0 when unknown), `rows` (process: input lines read so far; prepare: rows staged so far, absent until a source can count them), `step` (prepare only, see below) |
 | `stage:end` | A stage finishes | `runId`, `stage`, `elapsedMS` |
 | `consumer:end` | A run finishes | `runId`, `elapsedMS`; `rows` and `resultUri` on success, `error` on failure |
 | `task:start` | A command starts a piece of work (compiling, verifying a producer) | `task` (a number), `label` |
@@ -2487,8 +2531,15 @@ Every line has a `type`:
   that only feeds another consumer has no `export`.
 - **Progress units**: `process` counts input bytes, so `total` matches its `detail.bytes`. `prepare`
   counts a fraction, with `total` 1.
+- **Prepare's `step`** says what the current producer's source is doing: `connect`, `query`,
+  `download`, `decompress` or `decode`. It is absent until a source says. The set may grow, so
+  ignore a value you do not know. Where a source cannot measure how far it is — a running query, a
+  Postgres read — `done` can hold still for minutes while `step` and `rows` say what it is doing.
 - **A failed run** ends with a `consumer:end` carrying `error`, and the stage it failed in has no
   `stage:end`. A `task:start` with no `task:end` means the command stopped during that task.
+- **A waiting run** sends `consumer:waiting` once, then its `consumer:start` under the same `runId`
+  when it starts. One that fails before it starts ends with a `consumer:end` carrying `error` and no
+  `consumer:start`.
 - **Upstream runs** — a consumer input, a code lookup, an `onSuccess`/`onError` run — report under
   their own `runId`, with `parentRunId` set to the run that needed them.
 - **Durations** are in milliseconds and not rounded. Lines carry facts only: no colours, symbols or
@@ -2561,7 +2612,7 @@ Configure memory settings in project configuration:
 ### **Security**
 
 1. **Apply filters** to limit data exposure
-2. **Use project organization** for access control
+2. **Use domains** for access control
 3. **Document data classifications** in metadata
 4. **Validate schema compliance** where required
 

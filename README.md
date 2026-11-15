@@ -37,6 +37,7 @@ what `remora compile` enforces.
 | [Producers](docs/Remora%20-%20Producers.md) | Reading tables and files, dimensions, fixed-width layouts, masking, discovery |
 | [Consumers](docs/Remora%20-%20Consumers.md) | Joins, fields, the 28 transformations, filters, validation, outputs and triggers |
 | [Code Sets](docs/Remora%20-%20Code%20Sets.md) | Reusable value lists that drive synthetic data generation |
+| [Upgrading](docs/Remora%20-%20Upgrading.md) | Bringing a project up to a new CLI version with `remora migrate` |
 
 ## Versioning
 
