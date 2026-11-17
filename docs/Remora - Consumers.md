@@ -1438,8 +1438,9 @@ The receivers that read by column also write their numbers by column: an amount 
 - `number` fields only, and both are optional on their own. A field writing a plain `-123.45` declares neither.
 - **A field declaring `sign` is a signed field, so a positive value is written in the form the mode declares** — `123A`, `+123`, `123+` — never as bare digits.
 - Declared on the output, not taken from the producer: the file you write is not the file you read, and a value can reach the output from anywhere. Declare the same `scale` and `sign` on both sides and a field read from a positional file is written back byte for byte.
-- The padding goes where the layout wants it. A `leading` sign keeps the first column and the fill goes between it and the digits (`-0001234`), which is where a COBOL `SIGN LEADING SEPARATE` field carries it.
+- The padding goes where the layout wants it. Under a zero fill a `leading` sign keeps the first column and the zeros go between it and the digits (`-0001234`), which is where a COBOL `SIGN LEADING SEPARATE` field carries it. So does the plain `-` of a field declaring neither: `-123.45` in 10 columns is `-000123.45`, not `000-123.45`. Any other fill goes ahead of the sign: `   -5`, not `-   5`.
 - `compile` prints both alongside the columns, since a wrong `scale` writes a plausible amount that is 10ⁿ off.
+- **A `number` field is always written in plain digits**, never in exponent form, whether it declares `scale` and `sign` or neither: `0.0000001`, not `1e-7`. A value with a fraction under `"sign": "overpunch"` without `scale` **fails the run**, since an overpunched field has nowhere to put a decimal point — declare `scale` for its fraction digits.
 
 ### **Column Order, Gaps and `start`**
 

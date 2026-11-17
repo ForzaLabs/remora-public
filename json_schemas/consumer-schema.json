@@ -353,7 +353,7 @@
                             "sign": {
                                 "type": "string",
                                 "enum": ["overpunch", "leading", "trailing"],
-                                "description": "'number' fields only. How this field carries its sign, for the layouts that do not simply write a leading '-'. 'overpunch' puts it in the last byte (-1231 is written '123J', +1231 as '123A'); 'leading'/'trailing' write a real '+' or '-' in the first or last column of the field. A positive value is written in the form the mode declares, never as bare digits."
+                                "description": "'number' fields only. How this field carries its sign, for the layouts that do not simply write a leading '-'. 'overpunch' puts it in the last byte (-1231 is written '123J', +1231 as '123A'); 'leading'/'trailing' write a real '+' or '-' ahead of or after the digits. A positive value is written in the form the mode declares, never as bare digits."
                             }
                         }
                     }

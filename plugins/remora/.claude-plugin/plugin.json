@@ -1,0 +1,12 @@
+{
+    "name": "remora",
+    "displayName": "Remora",
+    "description": "Build, check and debug Remora pipelines: sources, producers and consumers written against the docs and schemas installed with your CLI, validated by remora compile after every edit.",
+    "author": {
+        "name": "Forza Labs",
+        "url": "https://github.com/ForzaLabs"
+    },
+    "homepage": "https://www.npmjs.com/package/@forzalabs/remora",
+    "repository": "https://github.com/ForzaLabs/remora-public",
+    "keywords": ["remora", "etl", "data-pipeline", "data-transformation", "json-schema"]
+}

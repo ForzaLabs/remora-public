@@ -1,0 +1,17 @@
+{
+    "description": "Run remora compile after Claude edits a JSON file in a Remora project, and report any errors back to Claude.",
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/compile-after-edit.mjs\"",
+                        "timeout": 60
+                    }
+                ]
+            }
+        ]
+    }
+}

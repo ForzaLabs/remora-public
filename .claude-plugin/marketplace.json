@@ -1,0 +1,17 @@
+{
+    "name": "forzalabs",
+    "description": "Claude Code plugins for Remora, the JSON-configured data transformation CLI by Forza Labs.",
+    "owner": {
+        "name": "Forza Labs",
+        "url": "https://github.com/ForzaLabs"
+    },
+    "plugins": [
+        {
+            "name": "remora",
+            "source": "./plugins/remora",
+            "description": "Build, check and debug Remora pipelines: sources, producers and consumers written against the docs and schemas installed with your CLI, validated by remora compile after every edit.",
+            "category": "data",
+            "tags": ["etl", "data-pipeline", "json-schema", "remora"]
+        }
+    ]
+}

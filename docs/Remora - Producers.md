@@ -134,6 +134,10 @@ A single document is held while it is read, so one larger than 4 MB stops with a
 `jsonRecordPath` rather than reading on into memory. Name where its records sit and the size of the
 file stops mattering.
 
+A file cut short — one that ends inside an object, an array or a string, as a transfer that did not
+finish leaves it — stops the run with an error naming the file, rather than reading as the records
+before the cut.
+
 ```json
 {
   "settings": {
@@ -741,7 +745,7 @@ Both source formats are read: a fixed-format copybook (sequence numbers in colum
 
 **The feed still has to arrive as display characters**, as every mainframe unload does — see [Mainframe unloads](#mainframe-unloads). A `COMP-3` or `COMP` field is emitted with its `usage` recorded (`"usage": "comp-3"`) and `remora compile` rejects it by name, so the conversion job expands the field; the `usage` property is then removed and the producer compiles.
 
-A clause the importer cannot read **fails, naming the copybook line**, rather than producing a layout that is nearly right: a field read from the wrong column holds a plausible value that no run and no validation can catch. `OCCURS DEPENDING ON` inside another repeating group, a `PIC` using `P`, `COMP-1`/`COMP-2`, level 66 `RENAMES` and a second record description in one copybook are all refused this way. Read each record type of a mixed file with its own producer and a [`recordSelector`](#mixed-record-types-hdt).
+A clause the importer cannot read **fails, naming the copybook line**, rather than producing a layout that is nearly right: a field read from the wrong column holds a plausible value that no run and no validation can catch. `OCCURS DEPENDING ON` inside another repeating group, a `PIC` using `P`, `COMP-1`/`COMP-2`, level 66 `RENAMES`, a `REDEFINES` of an item declared after it or wider than it across its occurrences, and a second record description in one copybook are all refused this way. Read each record type of a mixed file with its own producer and a [`recordSelector`](#mixed-record-types-hdt).
 
 The written producer points at a placeholder source and file: set `source` and `settings.fileKey`, then run `remora compile` and `remora sample` to check the positions against a real line.
 
@@ -842,6 +846,8 @@ A file that cannot be decompressed fails the run naming the file and the declare
 The first two are what a **drop folder** produces when a run reads a file while something else is still writing it: the file exists at zero bytes before it holds anything, and holds a partial archive until the write completes. Nothing on Remora's side can tell that file from a finished one, so have the writer stage it under a temporary name and rename it into place once written — a rename within a filesystem is atomic, so a run either sees the whole file or does not see it at all.
 
 The third is a configuration mistake: `compressionType` names a format the file is not in. Remora checks the file's leading bytes against the declared format before decompressing it (`1f 8b` for `GZ`, `50 4b` for `ZIP`), so this is refused by name rather than reported as whatever the decompressor made of the first chunk. `TAR` carries no signature at the start of the file, so a mislabelled `TAR` is reported by the extractor instead.
+
+A `TAR` cut short is refused too, wherever the cut falls: a finished `TAR` ends on a block of zeros, and one that does not fails the run with `Archive ... ends without the zero block that closes a TAR, so it is truncated` rather than reading as the files before the cut.
 
 ### **Excel Start Row / Column**
 

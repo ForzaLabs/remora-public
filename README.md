@@ -9,8 +9,22 @@ npm install -g @forzalabs/remora
 remora init
 ```
 
-This repository is a published mirror of two things from the Remora source tree: the JSON Schemas
-every configuration file is validated against, and the full prose reference. It holds no code.
+This repository is a published mirror of the Remora source tree's public material: the JSON Schemas
+every configuration file is validated against, the full prose reference, and a plugin for Claude
+Code. It holds no part of the Remora program.
+
+## Claude Code plugin
+
+The `remora` plugin teaches Claude Code how Remora projects work, points it at the documentation
+installed with your CLI, and runs `remora compile` after each config edit so mistakes are caught at
+once. In Claude Code:
+
+```text
+/plugin marketplace add ForzaLabs/remora-public
+/plugin install remora@forzalabs
+```
+
+See [plugins/remora](plugins/remora/README.md).
 
 ## JSON Schemas
 
@@ -64,5 +78,5 @@ written licence from Forza Labs. Contact admin@forza-labs.com.
 ## Issues
 
 Bug reports and questions belong on the CLI package: [@forzalabs/remora](https://www.npmjs.com/package/@forzalabs/remora).
-`remora report` packages a run — versions, redacted configuration, the run record and its slice of
-the log — into a zip worth attaching.
+`remora report` packages a run — versions, configuration, the run record and its slice of the log,
+with secrets redacted from the log — into a zip worth attaching.
