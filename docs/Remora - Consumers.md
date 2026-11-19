@@ -1991,7 +1991,16 @@ Additional processing options for consumers.
 
 ### **Distinct On**
 
-`distinctOn` de-duplicates on one or more `keys` and, when duplicates collide, keeps a single record according to `resolution`. Strategies: `first`/`last` (by `orderBy`, with an optional `direction` of `asc`/`desc`), or `min`/`max` (of `orderBy`). Reference fields by their alias if set.
+`distinctOn` de-duplicates on one or more `keys` and, when duplicates collide, keeps a single record according to `resolution`. Reference fields by their alias if set.
+
+| `strategy` | Keeps, for each key |
+| --- | --- |
+| `first` | the first record read |
+| `last` | the last record read |
+| `min` | the record with the smallest `orderBy` value |
+| `max` | the record with the largest `orderBy` value |
+
+`orderBy` is required for `min` and `max`, and `first`/`last` ignore it. `direction` (`asc` by default) applies to `min` and `max` only: `desc` inverts them, so `min` keeps the largest value.
 
 ```json
 {
@@ -2010,6 +2019,8 @@ Additional processing options for consumers.
 ### **Pivot**
 
 `pivot` groups the data by `rowKeys`, takes the distinct values of `pivotColumn` as new columns, and fills each cell by aggregating `valueColumn` with `aggregation` (`sum`, `count`, `avg`, `min`, `max`). Optionally restrict/prefix the generated columns with `pivotValues` and `columnPrefix`. Cannot be combined with `distinct`/`distinctOn`.
+
+Without `pivotValues`, the columns are the values found in `pivotColumn`, at most 1000 of them: a column holding more fails the run, and the fix is to list the columns wanted in `pivotValues`, which has no limit. With `pivotValues`, a record whose value is not listed adds to no column.
 
 ```json
 {

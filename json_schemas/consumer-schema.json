@@ -722,11 +722,11 @@
                                         "min",
                                         "max"
                                     ],
-                                    "description": "Strategy for resolving which record to keep. 'first': Keep the first record based on orderBy field. 'last': Keep the last record based on orderBy field. 'min': Keep the record with the minimum value in orderBy field. 'max': Keep the record with the maximum value in orderBy field."
+                                    "description": "Which record to keep for each key. 'first': the first record read. 'last': the last record read. 'min': the record with the smallest 'orderBy' value. 'max': the record with the largest 'orderBy' value."
                                 },
                                 "orderBy": {
                                     "type": "string",
-                                    "description": "Required for 'first', 'last', 'min', 'max' strategies. The field to use for ordering/comparison when selecting the record to keep."
+                                    "description": "Required for 'min' and 'max': the field whose value picks the record to keep. Use the 'alias' if specified. Ignored by 'first' and 'last'."
                                 },
                                 "direction": {
                                     "type": "string",
@@ -735,7 +735,7 @@
                                         "desc"
                                     ],
                                     "default": "asc",
-                                    "description": "For 'first' and 'last' strategies, the sort direction."
+                                    "description": "For 'min' and 'max' only: 'desc' inverts them, so 'min' keeps the largest value and 'max' the smallest. Ignored by 'first' and 'last'."
                                 }
                             },
                             "required": [
@@ -786,7 +786,7 @@
                             "items": {
                                 "type": "string"
                             },
-                            "description": "If provided, only these values from the pivot column will be used as output columns. This avoids a discovery pass over the data and makes the output shape statically known. If omitted, the distinct values are discovered automatically."
+                            "description": "If provided, only these values from the pivot column will be used as output columns. This avoids a discovery pass over the data and makes the output shape statically known. Records whose value is not listed add to no column. If omitted, the distinct values are discovered automatically, up to 1000; a column holding more fails the run."
                         },
                         "columnPrefix": {
                             "type": "string",

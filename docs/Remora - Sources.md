@@ -21,6 +21,7 @@ Remora supports the following source engines:
 | `aws-redshift` | Amazon Redshift data warehouse | SQL analytics, business intelligence, data warehousing |
 | `postgres` | PostgreSQL server (RDS, Aurora, or self-hosted) | Operational databases, application data, SQL extraction |
 | `delta-share` | Delta Share protocol | Data sharing across organizations, Databricks integration |
+| `databricks` | Databricks SQL warehouse | Unity Catalog tables, read by Databricks itself |
 | `http-api` | REST / HTTP API endpoint | External services, SaaS integrations |
 | `presigned-url` | A file reached through a URL signed on demand by an API | Reading from or writing to a bucket Remora holds no credentials for |
 | `aws-sqs` | Amazon SQS queue | Queue-triggered consumer execution (see consumer QUEUE triggers) |
@@ -37,8 +38,8 @@ The `authentication.method` field selects how Remora connects. The methods avail
 | `access-secret-key` | `aws-s3`, `aws-redshift`, `aws-sqs` | Static AWS access key + secret (optionally a session token) |
 | `iam` | `aws-s3`, `aws-redshift`, `aws-sqs`, `postgres` | Use the AWS SDK default credential chain (EC2/ECS/EKS instance or task role, SSO, env vars) — no static keys stored. On `postgres` this signs a short-lived RDS IAM auth token instead of sending a password |
 | `arn` | `aws-s3`, `aws-redshift`, `aws-sqs`, `postgres` | Assume an IAM role via STS (`roleArn`); base identity comes from the SDK default chain |
-| `bearer-token` | `delta-share`, `http-api`, `presigned-url` | Static bearer token |
-| `oidc` | `delta-share`, `http-api`, `presigned-url` | OAuth2 client-credentials grant (e.g. Okta/Cognito) that mints a short-lived token. This is what machine-to-machine (M2M) authentication on an API Gateway means |
+| `bearer-token` | `delta-share`, `databricks`, `http-api`, `presigned-url` | Static bearer token |
+| `oidc` | `delta-share`, `databricks`, `http-api`, `presigned-url` | OAuth2 client-credentials grant (e.g. Okta/Cognito) that mints a short-lived token. This is what machine-to-machine (M2M) authentication on an API Gateway means |
 | `api-key` | `http-api`, `presigned-url` | API key sent in a header |
 | `username-password` | `http-api`, `postgres`, `presigned-url` | HTTP Basic authentication, or a database user and password |
 | `none` | `http-api`, `presigned-url` | No authentication (public endpoints) |
@@ -660,7 +661,7 @@ Instead of a static `bearerToken`, Delta Share sources can use `method: "oidc"` 
 {
   "authentication": {
     "method": "bearer-token",
-    "host": "https://oregon.cloud.databricks.com/api/2.0/delta-sharing/metastores/f53bde37-1e8b-4668-a1e4-e62333110018",
+    "host": "https://oregon.cloud.databricks.com/api/2.0/delta-sharing/metastores/<metastore-id>",
     "bearerToken": "{DELTA_TOKEN}",
     "share": "analytics_share",
     "schema": "default",
@@ -687,7 +688,7 @@ export DELTA_TOKEN=your_delta_share_token_here
   "engine": "delta-share",
   "authentication": {
     "method": "bearer-token",
-    "host": "https://partner.cloud.databricks.com/api/2.0/delta-sharing/metastores/abc123-def4-5678-90ab-cdef12345678",
+    "host": "https://partner.cloud.databricks.com/api/2.0/delta-sharing/metastores/<metastore-id>",
     "bearerToken": "{PARTNER_DELTA_TOKEN}",
     "share": "customer_insights",
     "schema": "public",
@@ -707,7 +708,7 @@ export DELTA_TOKEN=your_delta_share_token_here
   "engine": "delta-share",
   "authentication": {
     "method": "bearer-token",
-    "host": "https://oregon.cloud.databricks.com/api/2.0/delta-sharing/metastores/internal-metastore-id",
+    "host": "https://oregon.cloud.databricks.com/api/2.0/delta-sharing/metastores/<metastore-id>",
     "bearerToken": "{INTERNAL_DELTA_TOKEN}",
     "share": "company_analytics",
     "schema": "processed",
@@ -719,10 +720,104 @@ export DELTA_TOKEN=your_delta_share_token_here
 
 ### **Delta Share Features**
 
-- **Version control**: Access to historical versions of shared data
-- **Incremental updates**: Efficient processing of data changes
-- **Schema evolution**: Automatic handling of schema changes
-- **Access control**: Token-based security with fine-grained permissions
+- **Latest snapshot**: Each read uses the latest version of the table
+- **Filter and limit hints**: Filters and limits are sent to the share as hints, so it can skip files; the pipeline still applies them
+- **Partition columns**: Each row gets its partition values, typed from the share schema
+- **Deletion vectors**: Rows deleted by a deletion vector are skipped; a run fails if a deletion vector cannot be read
+- **Authentication**: Bearer token or OIDC client credentials; the share controls which tables you can read
+
+---
+
+## **Databricks Sources**
+
+`databricks` sources read Unity Catalog tables through a Databricks SQL warehouse. Databricks reads
+the table, so every table feature it supports works, with no share to set up. A producer on it works
+as on Redshift or Postgres: `discover`, `sample`, filters and limits.
+
+### **Configuration Schema**
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/ForzaLabs/remora-public/refs/heads/main/json_schemas/source-schema.json",
+  "name": "source-name",
+  "engine": "databricks",
+  "authentication": {
+    "method": "bearer-token",
+    "host": "<workspace-host>",
+    "warehouseId": "<warehouse-id>",
+    "catalog": "catalog-name",
+    "schema": "schema-name",
+    "bearerToken": "{DATABRICKS_TOKEN}"
+  },
+  "_version": 1
+}
+```
+
+### **Authentication Properties**
+
+| Property | Required | Description | Example |
+| --- | --- | --- | --- |
+| `method` | ✅ | `"bearer-token"` for a personal access token, or `"oidc"` for a service principal (OAuth M2M) | `"bearer-token"` |
+| `host` | ✅ | Workspace host. `https://` is added when missing, and a path copied from the browser is dropped | `"<workspace-host>"` |
+| `warehouseId` | ✅ | ID of the SQL warehouse that runs the statements: the last part of its HTTP path in the warehouse's connection details | `"<warehouse-id>"` |
+| `catalog` | ✅ | Unity Catalog catalog that holds the tables | `"main"` |
+| `schema` | ❌ | Default schema for producers whose `sqlTable` is unqualified | `"sales"` |
+| `bearerToken` | ⚠️ | Required when the method is `"bearer-token"` | `"{DATABRICKS_TOKEN}"` |
+| `clientId` | ⚠️ | Required when the method is `"oidc"`: the service principal's client ID | `"{DATABRICKS_CLIENT_ID}"` |
+| `clientSecret` | ⚠️ | Required when the method is `"oidc"`: the service principal's OAuth secret | `"{DATABRICKS_CLIENT_SECRET}"` |
+| `tokenEndpoint` | ❌ | With `"oidc"`, defaults to the workspace's own `https://<workspace-host>/oidc/v1/token` | |
+| `scope` | ❌ | With `"oidc"`, defaults to `all-apis` | `"all-apis"` |
+
+⚠️ = required depending on `method`. `remora verify` reports which of these is missing.
+
+`catalog` and `schema` can be `{VAR}` references, as every other field can.
+
+### **Example — service principal (OAuth M2M)**
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/ForzaLabs/remora-public/refs/heads/main/json_schemas/source-schema.json",
+  "name": "lakehouse",
+  "description": "Unity Catalog tables through a SQL warehouse",
+  "engine": "databricks",
+  "authentication": {
+    "method": "oidc",
+    "host": "<workspace-host>",
+    "warehouseId": "<warehouse-id>",
+    "catalog": "{DATABRICKS_CATALOG}",
+    "schema": "sales",
+    "clientId": "{DATABRICKS_CLIENT_ID}",
+    "clientSecret": "{DATABRICKS_CLIENT_SECRET}"
+  },
+  "_version": 1
+}
+```
+
+### **How a run reads a table**
+
+The producer names its table with `sqlTable` and its columns as dimensions, as on Redshift.
+`sqlTable` may be `table`, `schema.table` or `catalog.schema.table`; a shorter name takes the
+source's `catalog` and `schema`. Names are not case-sensitive on Databricks: `Orders` and `orders`
+are the same table.
+
+Remora builds the `SELECT`, puts the producer's limit and the filters it can translate in its
+`LIMIT` and `WHERE`, runs it on the warehouse and stages the result as a local dataset file, one
+chunk at a time. The pipeline applies the filters left out. A run fails if the staged rows do not
+match the row count Databricks reports, or if Databricks cut the result short.
+
+### **Warehouse start**
+
+A stopped warehouse starts on the first statement, and the run shows `starting` while it waits. A
+statement still waiting after 10 minutes is cancelled and the run fails, saying the warehouse did not
+start. A full queue on a running warehouse counts as the same wait. A stopped run cancels its open
+statement.
+
+### **Limits**
+
+- **Maximum query rows**: `SQL_MAX_QUERY_ROWS` (default `10000`) caps `remora sample` and
+  `remora discover`. It does not cap a run
+- **Statement timeout**: a statement that runs for more than 30 minutes is cancelled and the run fails
+- **Cost**: each statement runs on the warehouse, and the first one starts it if it is stopped
 
 ---
 
