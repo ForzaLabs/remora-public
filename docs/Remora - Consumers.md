@@ -1982,6 +1982,8 @@ Additional processing options for consumers.
 | `distinctOn` | De-duplicate on specific key(s), keeping one record per key using a resolution rule | See below |
 | `pivot` | Turn row values into columns with an aggregation | See below |
 
+`distinct` writes its rows sorted by their columns, compared as text; `distinctOn` and `pivot` write theirs sorted by key. None keeps the order the rows were read in.
+
 ```json
 {
   "options": {
